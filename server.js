@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const cookieParser = require("cookie-parser");
 
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
@@ -28,6 +29,7 @@ const app = express();
    IMPORTANT: Cloudflare Support
 -------------------------------- */
 app.set("trust proxy", 1);   // required for HTTPS + cookies behind Cloudflare
+app.use(cookieParser());
 
 /* -------------------------------
    Security
