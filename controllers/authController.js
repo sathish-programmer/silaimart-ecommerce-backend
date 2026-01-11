@@ -39,16 +39,25 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const token = generateToken(user._id);
-    
+
+    // 🔥 SET JWT AS COOKIE (Required for cross-subdomain auth)
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,                 // HTTPS only
+      sameSite: "none",             // required for cross-site
+      domain: ".silaimart.in",      // share between silaimart.in & admin.silaimart.in
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     res.json({
-      message: 'Login successful',
-      token,
+      success: true,
       user: {
         id: user._id,
         name: user.name,
@@ -56,10 +65,13 @@ exports.login = async (req, res) => {
         role: user.role
       }
     });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
+
 
 exports.getProfile = async (req, res) => {
   try {
