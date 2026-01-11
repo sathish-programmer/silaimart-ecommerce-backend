@@ -1,5 +1,34 @@
 const Category = require('../models/Category');
 
+// Helper function to generate slug from name
+const generateSlug = (name) => {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+};
+
+// Helper function to ensure unique slug
+const ensureUniqueSlug = async (slug, excludeId = null) => {
+  let uniqueSlug = slug;
+  let counter = 1;
+  
+  while (true) {
+    const query = { slug: uniqueSlug };
+    if (excludeId) query._id = { $ne: excludeId };
+    
+    const existingCategory = await Category.findOne(query);
+    if (!existingCategory) break;
+    
+    uniqueSlug = `${slug}-${counter}`;
+    counter++;
+  }
+  
+  return uniqueSlug;
+};
+
 // Get all categories
 const getCategories = async (req, res) => {
   try {
@@ -53,11 +82,15 @@ const createCategory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Category already exists' });
     }
     
+    // Generate slug from name
+    const baseSlug = generateSlug(name);
+    const slug = await ensureUniqueSlug(baseSlug);
+    
     const category = new Category({
       name,
+      slug,
       description,
-      image,
-      createdBy: req.user.id
+      image
     });
     
     await category.save();
@@ -88,9 +121,19 @@ const updateCategory = async (req, res) => {
       }
     }
     
+    // Generate new slug if name changed
+    const updateData = { description, image, isActive, updatedAt: Date.now() };
+    if (name) {
+      updateData.name = name;
+      if (name !== category.name) {
+        const baseSlug = generateSlug(name);
+        updateData.slug = await ensureUniqueSlug(baseSlug, req.params.id);
+      }
+    }
+    
     const updatedCategory = await Category.findByIdAndUpdate(
       req.params.id,
-      { name, description, image, isActive, updatedAt: Date.now() },
+      updateData,
       { new: true, runValidators: true }
     );
     
