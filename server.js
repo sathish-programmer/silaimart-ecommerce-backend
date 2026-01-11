@@ -37,9 +37,13 @@ app.use(cors({
 }));
 
 // Rate limiting
+app.set("trust proxy", 1);
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max:  process.env.RATE_LIMIT_MAX_REQUESTS // increased limit to 1000 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use(limiter);
 
