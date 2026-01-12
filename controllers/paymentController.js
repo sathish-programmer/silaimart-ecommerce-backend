@@ -47,7 +47,8 @@ exports.generateQRCode = async (req, res) => {
     }
     
     const upiId = settings.payment.qr.upiId;
-    const upiString = `upi://pay?pa=${upiId}&pn=SilaiMart&am=${amount}&cu=INR&tn=Order%20${orderId}`;
+    const merchantName = settings.payment.qr.merchantName || 'SilaiMart';
+    const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR&tn=Order%20${orderId}`;
     
     const qrCodeDataURL = await QRCode.toDataURL(upiString, {
       width: 300,
