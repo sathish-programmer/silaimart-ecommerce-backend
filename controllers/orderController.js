@@ -58,12 +58,31 @@ exports.getOrderById = async (req, res) => {
       .populate('user', 'name email phone');
 
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found',
+        order: null
+      });
     }
 
-    res.json({ success: true, order });
+    // Ensure items array exists
+    if (!order.items) {
+      order.items = [];
+    }
+
+    res.json({ 
+      success: true, 
+      order: {
+        ...order.toObject(),
+        items: order.items || []
+      }
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      order: null
+    });
   }
 };
 
@@ -212,13 +231,20 @@ exports.getOrders = async (req, res) => {
 
     res.json({
       success: true,
-      orders,
+      orders: orders || [],
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
       total
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      orders: [],
+      totalPages: 0,
+      currentPage: 1,
+      total: 0
+    });
   }
 };
 
@@ -234,12 +260,31 @@ exports.getOrder = async (req, res) => {
       .populate('user', 'name email phone');
 
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found',
+        order: null
+      });
     }
 
-    res.json({ success: true, order });
+    // Ensure items array exists
+    if (!order.items) {
+      order.items = [];
+    }
+
+    res.json({ 
+      success: true, 
+      order: {
+        ...order.toObject(),
+        items: order.items || []
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      order: null
+    });
   }
 };
 
