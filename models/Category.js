@@ -7,6 +7,11 @@ const categorySchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   slug: {
     type: String,
     required: true,

@@ -1,5 +1,6 @@
-const { Order, Product, Coupon } = require('../models');
+const { Order, Product, Coupon, User } = require('../models');
 const { sendOrderNotification, sendPaymentNotification } = require('../services/notificationService');
+const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate } = require('../services/emailService');
 const crypto = require('crypto');
 
 exports.getAllOrders = async (req, res) => {
@@ -7,10 +8,30 @@ exports.getAllOrders = async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
+    // Role-based filtering - only for regular admin, superadmin sees all
+    if (req.user.role === 'admin') {
+      // Regular admin can only see orders for products they created
+      const adminProducts = await Product.find({ createdBy: req.user.userId }).select('_id');
+      const productIds = adminProducts.map(p => p._id);
+      if (productIds.length > 0) {
+        filter['items.product'] = { $in: productIds };
+      } else {
+        // If admin has no products, return empty result
+        return res.json({
+          success: true,
+          orders: [],
+          totalPages: 0,
+          currentPage: page,
+          total: 0
+        });
+      }
+    }
+    // Superadmin sees all orders (no filter applied)
+    
     if (status) filter.orderStatus = status;
 
     const orders = await Order.find(filter)
-      .populate('items.product', 'name images price')
+      .populate('items.product', 'name images price createdBy')
       .populate('user', 'name email')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
@@ -140,6 +161,10 @@ exports.createOrder = async (req, res) => {
       { path: 'user', select: 'name email' }
     ]);
 
+    // Send email confirmation
+    const user = await User.findById(req.user.userId);
+    await sendOrderConfirmation(order, user);
+
     // Send notifications
     await sendOrderNotification(req.user.userId, order._id, 'created', order);
     
@@ -167,7 +192,7 @@ exports.getOrders = async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
     
@@ -197,7 +222,7 @@ exports.getOrders = async (req, res) => {
 exports.getOrder = async (req, res) => {
   try {
     const filter = { _id: req.params.id };
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
 
@@ -217,20 +242,24 @@ exports.getOrder = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { orderStatus, paymentStatus, trackingNumber, notes } = req.body;
+    const { orderStatus, paymentStatus, trackingNumber, notes, estimatedDeliveryDate, deliveryNotes, sendEmail } = req.body;
     
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate('user', 'name email');
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
     
     const originalStatus = order.orderStatus;
+    const originalDeliveryDate = order.estimatedDeliveryDate;
     
     const updateData = {};
     if (orderStatus) updateData.orderStatus = orderStatus;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (trackingNumber) updateData.trackingNumber = trackingNumber;
     if (notes !== undefined) updateData.notes = notes;
+    if (estimatedDeliveryDate) updateData.estimatedDeliveryDate = new Date(estimatedDeliveryDate);
+    if (deliveryNotes) updateData.deliveryNotes = deliveryNotes;
+    if (orderStatus === 'delivered') updateData.actualDeliveryDate = new Date();
     
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
@@ -239,9 +268,17 @@ exports.updateOrderStatus = async (req, res) => {
     ).populate('items.product', 'name images price')
      .populate('user', 'name email');
 
-    // Send notification if status changed
-    if (orderStatus && orderStatus !== originalStatus) {
-      await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+    // Send email notifications only if sendEmail is true
+    if (sendEmail) {
+      if (orderStatus && orderStatus !== originalStatus) {
+        await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
+        await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+      }
+      
+      // Send delivery date update email
+      if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
+        await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
+      }
     }
 
     res.json({ 
@@ -257,7 +294,7 @@ exports.updateOrderStatus = async (req, res) => {
 exports.generateInvoice = async (req, res) => {
   try {
     const filter = { _id: req.params.id };
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
 
@@ -378,7 +415,7 @@ exports.cancelOrder = async (req, res) => {
     const { reason } = req.body;
     const filter = { _id: req.params.id };
     
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
 

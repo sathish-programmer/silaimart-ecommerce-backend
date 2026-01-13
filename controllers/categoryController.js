@@ -35,14 +35,20 @@ const getCategories = async (req, res) => {
     const { limit, page = 1 } = req.query;
     const skip = (page - 1) * (limit || 0);
     
-    const query = Category.find({ isActive: true });
+    const filter = { isActive: true };
+    // Role-based filtering for admin routes
+    if (req.user && req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
+    
+    const query = Category.find(filter);
     
     if (limit) {
       query.limit(parseInt(limit)).skip(skip);
     }
     
-    const categories = await query.sort({ createdAt: -1 });
-    const total = await Category.countDocuments({ isActive: true });
+    const categories = await query.sort({ createdAt: -1 }).populate('createdBy', 'name email');
+    const total = await Category.countDocuments(filter);
     
     res.json({
       success: true,
@@ -90,7 +96,8 @@ const createCategory = async (req, res) => {
       name,
       slug,
       description,
-      image
+      image,
+      createdBy: req.user.userId
     });
     
     await category.save();

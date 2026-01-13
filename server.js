@@ -21,6 +21,7 @@ const policyRoutes = require('./routes/policies');
 const notificationRoutes = require('./routes/notifications');
 const offerRoutes = require('./routes/offers');
 const adminRoutes = require('./routes/admin');
+const testRoutes = require('./routes/test');
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.use('/api/policies', policyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/test', testRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

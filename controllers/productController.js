@@ -13,6 +13,12 @@ exports.getAllProducts = async (req, res) => {
 
     const filter = {};
     
+    // Role-based filtering
+    if (req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
+    // Superadmin sees all products
+    
     if (category) filter.category = category;
     if (search) {
       filter.$text = { $search: search };
@@ -23,6 +29,7 @@ exports.getAllProducts = async (req, res) => {
 
     const products = await Product.find(filter)
       .populate('category', 'name slug')
+      .populate('createdBy', 'name email')
       .sort(sortObj)
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -159,7 +166,8 @@ exports.getProduct = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
-    const product = new Product(req.body);
+    const productData = { ...req.body, createdBy: req.user.userId };
+    const product = new Product(productData);
     await product.save();
     await product.populate('category', 'name slug');
     
@@ -171,14 +179,19 @@ exports.createProduct = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    const filter = { _id: req.params.id };
+    if (req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
+    
+    const product = await Product.findOneAndUpdate(
+      filter,
       req.body,
       { new: true }
     ).populate('category', 'name slug');
     
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: 'Product not found or access denied' });
     }
     
     res.json({ message: 'Product updated successfully', product });
@@ -189,10 +202,15 @@ exports.updateProduct = async (req, res) => {
 
 exports.deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const filter = { _id: req.params.id };
+    if (req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
+    
+    const product = await Product.findOneAndDelete(filter);
     
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: 'Product not found or access denied' });
     }
     
     res.json({ message: 'Product deleted successfully' });

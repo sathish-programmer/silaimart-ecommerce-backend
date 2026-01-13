@@ -1,91 +1,166 @@
 const { User } = require('../models');
-const { sendOfferNotification } = require('../services/notificationService');
+const { sendOfferNotification } = require('../services/emailService');
 
-// Send offer notification to all users
-exports.sendToAllUsers = async (req, res) => {
+// Send offer to all users
+const sendOfferToAllUsers = async (req, res) => {
   try {
-    const { title, message, url, couponCode } = req.body;
-
-    if (!title || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and message are required'
+    const { title, description, discountPercentage, couponCode, validUntil } = req.body;
+    
+    if (!title || !description) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Title and description are required' 
       });
     }
 
-    // Get all active users
-    const users = await User.find({ isActive: true }).select('_id');
+    const offer = {
+      title,
+      description,
+      discountPercentage,
+      couponCode,
+      validUntil: validUntil ? new Date(validUntil) : null
+    };
+
+    // Get all users with role 'user'
+    const users = await User.find({ role: 'user' }).select('name email');
     
     if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active users found'
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No users found' 
       });
     }
 
-    // Send notifications to all users
-    const notificationPromises = users.map(user => 
-      sendOfferNotification(user._id, {
-        title,
-        message,
-        url: url || '/shop',
-        couponCode
-      })
-    );
+    // Send emails to all users (in batches to avoid overwhelming the email service)
+    const batchSize = 10;
+    let sentCount = 0;
+    let failedCount = 0;
 
-    await Promise.all(notificationPromises);
+    for (let i = 0; i < users.length; i += batchSize) {
+      const batch = users.slice(i, i + batchSize);
+      
+      const emailPromises = batch.map(async (user) => {
+        try {
+          await sendOfferNotification(user, offer);
+          return { success: true, email: user.email };
+        } catch (error) {
+          console.error(`Failed to send offer email to ${user.email}:`, error);
+          return { success: false, email: user.email, error: error.message };
+        }
+      });
+
+      const results = await Promise.all(emailPromises);
+      
+      results.forEach(result => {
+        if (result.success) {
+          sentCount++;
+        } else {
+          failedCount++;
+        }
+      });
+
+      // Add delay between batches to avoid rate limiting
+      if (i + batchSize < users.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     res.json({
       success: true,
-      message: `Offer notification sent to ${users.length} users successfully`
+      message: `Offer emails sent successfully`,
+      stats: {
+        totalUsers: users.length,
+        sentCount,
+        failedCount
+      }
     });
+
   } catch (error) {
-    console.error('Error sending offer to all users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send offer notification'
+    console.error('Error sending offer emails:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 };
 
-// Send offer notification to specific user
-exports.sendToUser = async (req, res) => {
+// Send offer to specific users
+const sendOfferToSpecificUsers = async (req, res) => {
   try {
-    const { userId, title, message, url, couponCode } = req.body;
-
-    if (!userId || !title || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID, title and message are required'
+    const { title, description, discountPercentage, couponCode, validUntil, userEmails } = req.body;
+    
+    if (!title || !description || !userEmails || !Array.isArray(userEmails)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Title, description, and userEmails array are required' 
       });
     }
 
-    // Check if user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Send notification to specific user
-    await sendOfferNotification(userId, {
+    const offer = {
       title,
-      message,
-      url: url || '/shop',
-      couponCode
+      description,
+      discountPercentage,
+      couponCode,
+      validUntil: validUntil ? new Date(validUntil) : null
+    };
+
+    // Get users by email
+    const users = await User.find({ 
+      email: { $in: userEmails },
+      role: 'user' 
+    }).select('name email');
+    
+    if (users.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No valid users found with provided emails' 
+      });
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    const emailPromises = users.map(async (user) => {
+      try {
+        await sendOfferNotification(user, offer);
+        return { success: true, email: user.email };
+      } catch (error) {
+        console.error(`Failed to send offer email to ${user.email}:`, error);
+        return { success: false, email: user.email, error: error.message };
+      }
+    });
+
+    const results = await Promise.all(emailPromises);
+    
+    results.forEach(result => {
+      if (result.success) {
+        sentCount++;
+      } else {
+        failedCount++;
+      }
     });
 
     res.json({
       success: true,
-      message: `Offer notification sent to ${user.name} successfully`
+      message: `Offer emails sent to specific users`,
+      stats: {
+        requestedEmails: userEmails.length,
+        validUsers: users.length,
+        sentCount,
+        failedCount
+      }
     });
+
   } catch (error) {
-    console.error('Error sending offer to user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send offer notification'
+    console.error('Error sending offer emails:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
+};
+
+module.exports = {
+  sendOfferToAllUsers,
+  sendOfferToSpecificUsers
 };

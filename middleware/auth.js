@@ -38,7 +38,7 @@ const adminAuth = async (req, res, next) => {
       return res.status(401).json({ message: 'Token is not valid' });
     }
     
-    if (user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(user.role)) {
       return res.status(403).json({ message: 'Admin access required' });
     }
     

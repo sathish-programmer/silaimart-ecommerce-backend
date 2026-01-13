@@ -8,6 +8,11 @@ const couponSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   description: String,
   type: {
     type: String,

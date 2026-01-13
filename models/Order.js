@@ -80,6 +80,9 @@ const orderSchema = new mongoose.Schema({
     default: 'pending'
   },
   trackingNumber: String,
+  estimatedDeliveryDate: Date,
+  actualDeliveryDate: Date,
+  deliveryNotes: String,
   notes: String
 }, {
   timestamps: true
