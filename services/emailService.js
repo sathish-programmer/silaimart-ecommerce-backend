@@ -8,6 +8,15 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Test transporter connection
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('Email transporter error:', error);
+  } else {
+    console.log('Email server is ready to send messages');
+  }
+});
+
 const sendOrderConfirmation = async (order, user) => {
   const mailOptions = {
     from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
@@ -47,40 +56,49 @@ const sendOrderConfirmation = async (order, user) => {
 };
 
 const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
-  const statusMessages = {
-    confirmed: 'Your order has been confirmed and is being prepared.',
-    processing: 'Your order is now being processed.',
-    shipped: `Your order has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
-    delivered: 'Your order has been delivered successfully!',
-    cancelled: 'Your order has been cancelled.'
-  };
+  try {
+    console.log('Sending order status update email to:', user.email);
+    
+    const statusMessages = {
+      confirmed: 'Your order has been confirmed and is being prepared.',
+      processing: 'Your order is now being processed.',
+      shipped: `Your order has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
+      delivered: 'Your order has been delivered successfully!',
+      cancelled: 'Your order has been cancelled.'
+    };
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
-    to: user.email,
-    subject: `Order Update - ${order.orderNumber}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #8B4513;">Order Status Update</h2>
-        <p>Dear ${user.name},</p>
-        <p>${statusMessages[newStatus]}</p>
-        
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
-          <h3>Order Details</h3>
-          <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-          <p><strong>Status:</strong> ${newStatus.toUpperCase()}</p>
-          ${order.estimatedDeliveryDate ? `<p><strong>Estimated Delivery:</strong> ${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</p>` : ''}
-          ${order.trackingNumber ? `<p><strong>Tracking Number:</strong> ${order.trackingNumber}</p>` : ''}
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
+      to: user.email,
+      subject: `Order Update - ${order.orderNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #8B4513;">Order Status Update</h2>
+          <p>Dear ${user.name},</p>
+          <p>${statusMessages[newStatus]}</p>
+          
+          <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+            <h3>Order Details</h3>
+            <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+            <p><strong>Status:</strong> ${newStatus.toUpperCase()}</p>
+            ${order.estimatedDeliveryDate ? `<p><strong>Estimated Delivery:</strong> ${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</p>` : ''}
+            ${order.trackingNumber ? `<p><strong>Tracking Number:</strong> ${order.trackingNumber}</p>` : ''}
+          </div>
+          
+          ${order.deliveryNotes ? `<p><strong>Delivery Notes:</strong> ${order.deliveryNotes}</p>` : ''}
+          
+          <p>Thank you for shopping with SilaiMart!</p>
         </div>
-        
-        ${order.deliveryNotes ? `<p><strong>Delivery Notes:</strong> ${order.deliveryNotes}</p>` : ''}
-        
-        <p>Thank you for shopping with SilaiMart!</p>
-      </div>
-    `
-  };
-  
-  await transporter.sendMail(mailOptions);
+      `
+    };
+    
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Order status email sent successfully:', result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending order status email:', error);
+    throw error;
+  }
 };
 
 const sendDeliveryDateUpdate = async (order, user) => {

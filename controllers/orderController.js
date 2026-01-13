@@ -244,6 +244,8 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderStatus, paymentStatus, trackingNumber, notes, estimatedDeliveryDate, deliveryNotes, sendEmail } = req.body;
     
+    console.log('Update order request:', { orderStatus, paymentStatus, sendEmail, orderId: req.params.id });
+    
     const order = await Order.findById(req.params.id).populate('user', 'name email');
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -270,15 +272,34 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Send email notifications only if sendEmail is true
     if (sendEmail) {
-      if (orderStatus && orderStatus !== originalStatus) {
-        await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
-        await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+      console.log('Sending email notifications...');
+      try {
+        if (orderStatus && orderStatus !== originalStatus) {
+          console.log('Sending order status update email');
+          console.log('User email:', updatedOrder.user.email);
+          console.log('Order details:', { orderNumber: updatedOrder.orderNumber, status: orderStatus });
+          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
+          await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+        }
+        
+        // Send payment status update email
+        if (paymentStatus && paymentStatus !== order.paymentStatus) {
+          console.log('Sending payment status update email');
+          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, order.paymentStatus, paymentStatus);
+        }
+        
+        // Send delivery date update email
+        if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
+          console.log('Sending delivery date update email');
+          await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
+        }
+        console.log('Email notifications sent successfully');
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
+        // Don't fail the request if email fails
       }
-      
-      // Send delivery date update email
-      if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
-        await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
-      }
+    } else {
+      console.log('Email sending skipped (sendEmail = false)');
     }
 
     res.json({ 
@@ -287,6 +308,7 @@ exports.updateOrderStatus = async (req, res) => {
       order: updatedOrder 
     });
   } catch (error) {
+    console.error('Update order error:', error);
     res.status(500).json({ message: error.message });
   }
 };

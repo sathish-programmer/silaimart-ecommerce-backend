@@ -4,9 +4,12 @@ const { sendOfferNotification } = require('../services/emailService');
 // Send offer to all users
 const sendOfferToAllUsers = async (req, res) => {
   try {
-    const { title, description, discountPercentage, couponCode, validUntil } = req.body;
+    const { title, description, message, discountPercentage, couponCode, validUntil, url } = req.body;
     
-    if (!title || !description) {
+    // Support both 'description' and 'message' for backward compatibility
+    const offerDescription = description || message;
+    
+    if (!title || !offerDescription) {
       return res.status(400).json({ 
         success: false, 
         message: 'Title and description are required' 
@@ -15,10 +18,11 @@ const sendOfferToAllUsers = async (req, res) => {
 
     const offer = {
       title,
-      description,
+      description: offerDescription,
       discountPercentage,
       couponCode,
-      validUntil: validUntil ? new Date(validUntil) : null
+      validUntil: validUntil ? new Date(validUntil) : null,
+      url
     };
 
     // Get all users with role 'user'
@@ -87,9 +91,12 @@ const sendOfferToAllUsers = async (req, res) => {
 // Send offer to specific users
 const sendOfferToSpecificUsers = async (req, res) => {
   try {
-    const { title, description, discountPercentage, couponCode, validUntil, userEmails } = req.body;
+    const { title, description, message, discountPercentage, couponCode, validUntil, userEmails, url } = req.body;
     
-    if (!title || !description || !userEmails || !Array.isArray(userEmails)) {
+    // Support both 'description' and 'message' for backward compatibility
+    const offerDescription = description || message;
+    
+    if (!title || !offerDescription || !userEmails || !Array.isArray(userEmails)) {
       return res.status(400).json({ 
         success: false, 
         message: 'Title, description, and userEmails array are required' 
@@ -98,10 +105,11 @@ const sendOfferToSpecificUsers = async (req, res) => {
 
     const offer = {
       title,
-      description,
+      description: offerDescription,
       discountPercentage,
       couponCode,
-      validUntil: validUntil ? new Date(validUntil) : null
+      validUntil: validUntil ? new Date(validUntil) : null,
+      url
     };
 
     // Get users by email
