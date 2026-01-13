@@ -118,8 +118,11 @@ exports.createOrder = async (req, res) => {
           discount = coupon.value;
         }
         
-        coupon.usedCount += 1;
-        await coupon.save();
+        // Update coupon usage count without validation
+        await Coupon.updateOne(
+          { _id: coupon._id },
+          { $inc: { usedCount: 1 } }
+        );
       }
     }
 

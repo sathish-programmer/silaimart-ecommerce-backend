@@ -80,7 +80,10 @@ exports.validateCoupon = async (req, res) => {
 
 exports.createCoupon = async (req, res) => {
   try {
-    const coupon = new Coupon(req.body);
+    const coupon = new Coupon({
+      ...req.body,
+      createdBy: req.user.userId
+    });
     await coupon.save();
     res.status(201).json({ message: 'Coupon created successfully', coupon });
   } catch (error) {
