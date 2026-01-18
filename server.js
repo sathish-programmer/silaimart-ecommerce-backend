@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const cookieParser = require("cookie-parser");
 
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
@@ -26,42 +27,58 @@ const masterValuesRoutes = require('./routes/masterValues');
 
 const app = express();
 
-// Security middleware
+/* -------------------------------
+   IMPORTANT: Cloudflare Support
+-------------------------------- */
+app.set("trust proxy", 1);   // required for HTTPS + cookies behind Cloudflare
+app.use(cookieParser());
+
+/* -------------------------------
+   Security
+-------------------------------- */
 app.use(helmet());
+
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3001',
-    'https://admin.silaimart.in',
-    'https://silaimart.in'
+    process.env.FRONTEND_URL,          // https://silaimart.in
+    process.env.ADMIN_URL,             // https://admin.silaimart.in
+    "http://localhost:3000",
+    "http://localhost:3001"
   ],
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+app.options("*", cors());   // 🔥 this fixes OPTIONS 502
 
-// Rate limiting
-app.set("trust proxy", 1);
-
+/* -------------------------------
+   Rate Limiting
+-------------------------------- */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
-  standardHeaders: true,
-  legacyHeaders: false
+  max: 1000
 });
 app.use(limiter);
 
-// Body parsing middleware
+/* -------------------------------
+   Body Parsing
+-------------------------------- */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/silaimart', {
+/* -------------------------------
+   Database
+-------------------------------- */
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.error("MongoDB error:", err));
 
-// Routes
+/* -------------------------------
+   Routes
+-------------------------------- */
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -82,18 +99,25 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/master-values', masterValuesRoutes);
 
-// Health check
+/* -------------------------------
+   Health Check
+-------------------------------- */
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ status: "OK", time: new Date().toISOString() });
 });
 
-// Error handling middleware
+/* -------------------------------
+   Error Handler
+-------------------------------- */
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error(err);
+  res.status(500).json({ message: "Internal Server Error" });
 });
 
-const PORT = process.env.PORT || 5001;
+/* -------------------------------
+   Server
+-------------------------------- */
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`SilaiMart API running on port ${PORT}`);
 });
