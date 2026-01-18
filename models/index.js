@@ -8,6 +8,7 @@ const Review = require('./Review');
 const Banner = require('./Banner');
 const Settings = require('./Settings');
 const { BotQuestion, BotFlow } = require('./BotQuestion');
+const CustomizationRequest = require('./CustomizationRequest');
 
 module.exports = {
   User,
@@ -20,5 +21,6 @@ module.exports = {
   Banner,
   Settings,
   BotQuestion,
-  BotFlow
+  BotFlow,
+  CustomizationRequest
 };

@@ -3,13 +3,18 @@ const { Coupon } = require('../models');
 exports.getAllCoupons = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
+    let filter = {};
+
+    if (req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
     
-    const coupons = await Coupon.find({})
+    const coupons = await Coupon.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Coupon.countDocuments({});
+    const total = await Coupon.countDocuments(filter);
 
     res.json({
       success: true,
@@ -88,6 +93,28 @@ exports.createCoupon = async (req, res) => {
     res.status(201).json({ message: 'Coupon created successfully', coupon });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getMyCoupons = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const coupons = await Coupon.find({ createdBy: req.user.userId })
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Coupon.countDocuments({ createdBy: req.user.userId });
+
+    res.json({
+      success: true,
+      coupons,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -99,6 +99,7 @@ const productSchema = new mongoose.Schema({
   },
   seoTitle: String,
   seoDescription: String,
+  isCustomizable: { type: Boolean, default: false },
   // Shipping and handling
   shippingInfo: {
     fragile: { type: Boolean, default: true },

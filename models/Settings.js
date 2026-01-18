@@ -93,6 +93,14 @@ const settingsSchema = new mongoose.Schema({
     keywords: [String],
     googleAnalytics: String,
     facebookPixel: String
+  },
+
+  // Loyalty Program Settings
+  loyalty: {
+    enabled: { type: Boolean, default: true },
+    pointsPerRupee: { type: Number, default: 0.01 }, // 1 point for every 100 rupees spent
+    redemptionRate: { type: Number, default: 1 }, // 1 point = 1 rupee discount
+    minimumRedeemPoints: { type: Number, default: 100 }
   }
 }, {
   timestamps: true

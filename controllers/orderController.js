@@ -1,6 +1,6 @@
-const { Order, Product, Coupon, User } = require('../models');
+const { Order, Product, Coupon, User, Settings } = require('../models');
 const { sendOrderNotification, sendPaymentNotification } = require('../services/notificationService');
-const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate } = require('../services/emailService');
+const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate, sendLoyaltyPointsNotification } = require('../services/emailService');
 const crypto = require('crypto');
 
 exports.getAllOrders = async (req, res) => {
@@ -8,26 +8,51 @@ exports.getAllOrders = async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
-    // Role-based filtering - only for regular admin, superadmin sees all
-    if (req.user.role === 'admin') {
-      // Regular admin can only see orders for products they created
-      const adminProducts = await Product.find({ createdBy: req.user.userId }).select('_id');
-      const productIds = adminProducts.map(p => p._id);
-      if (productIds.length > 0) {
-        filter['items.product'] = { $in: productIds };
-      } else {
-        // If admin has no products, return empty result
-        return res.json({
-          success: true,
-          orders: [],
-          totalPages: 0,
-          currentPage: page,
-          total: 0
-        });
-      }
+    if (status) filter.orderStatus = status;
+
+    const orders = await Order.find(filter)
+      .populate('items.product', 'name images price createdBy')
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Order.countDocuments(filter);
+
+    res.json({
+      success: true,
+      orders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getAdminOrders = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+    const filter = {};
+
+    // Regular admin can only see orders for products they created
+    const adminProducts = await Product.find({ createdBy: req.user.userId }).select('_id');
+    const productIds = adminProducts.map(p => p._id);
+
+    if (productIds.length > 0) {
+      filter['items.product'] = { $in: productIds };
+    } else {
+      // If admin has no products, return empty result
+      return res.json({
+        success: true,
+        orders: [],
+        totalPages: 0,
+        currentPage: page,
+        total: 0
+      });
     }
-    // Superadmin sees all orders (no filter applied)
-    
+
     if (status) filter.orderStatus = status;
 
     const orders = await Order.find(filter)
@@ -88,7 +113,7 @@ exports.getOrderById = async (req, res) => {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod, couponCode } = req.body;
+    const { items, shippingAddress, paymentMethod, couponCode, loyaltyPointsUsed = 0 } = req.body;
     
     let subtotal = 0;
     const orderItems = [];
@@ -118,7 +143,9 @@ exports.createOrder = async (req, res) => {
 
     let discount = 0;
     let coupon = null;
+    let loyaltyDiscount = 0;
 
+    // Handle coupon discount
     if (couponCode) {
       coupon = await Coupon.findOne({ 
         code: couponCode.toUpperCase(),
@@ -137,7 +164,6 @@ exports.createOrder = async (req, res) => {
           discount = coupon.value;
         }
         
-        // Update coupon usage count without validation
         await Coupon.updateOne(
           { _id: coupon._id },
           { $inc: { usedCount: 1 } }
@@ -145,11 +171,32 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    const shippingCost = subtotal >= 1000 ? 0 : 50;
-    const tax = Math.round((subtotal - discount) * 0.18);
-    const total = subtotal - discount + shippingCost + tax;
+    // Handle loyalty points discount
+    if (loyaltyPointsUsed > 0) {
+      const user = await User.findById(req.user.userId);
+      const userPoints = Number(user.loyaltyPoints) || 0;
+      const pointsToUse = Number(loyaltyPointsUsed) || 0;
+      
+      if (userPoints >= pointsToUse) {
+        loyaltyDiscount = pointsToUse; // 1 point = 1 rupee
+        // Deduct loyalty points from user
+        await User.findByIdAndUpdate(req.user.userId, {
+          $inc: { loyaltyPoints: -pointsToUse }
+        });
+      } else {
+        return res.status(400).json({ 
+          message: 'Insufficient loyalty points',
+          availablePoints: userPoints,
+          requestedPoints: pointsToUse
+        });
+      }
+    }
 
-    // Generate unique order number
+    const shippingCost = subtotal >= 1000 ? 0 : 50;
+    const totalDiscount = discount + loyaltyDiscount;
+    const tax = Math.round((subtotal - totalDiscount) * 0.18);
+    const total = Math.max(0, subtotal - totalDiscount + shippingCost + tax);
+
     const orderNumber = `SM${Date.now()}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
 
     const order = new Order({
@@ -158,6 +205,8 @@ exports.createOrder = async (req, res) => {
       items: orderItems,
       subtotal,
       discount,
+      loyaltyPointsUsed: loyaltyPointsUsed || 0,
+      loyaltyDiscount,
       shippingCost,
       tax,
       total,
@@ -183,14 +232,10 @@ exports.createOrder = async (req, res) => {
       { path: 'user', select: 'name email' }
     ]);
 
-    // Send email confirmation
     const user = await User.findById(req.user.userId);
     await sendOrderConfirmation(order, user);
-
-    // Send notifications
     await sendOrderNotification(req.user.userId, order._id, 'created', order);
     
-    // Send payment notification for COD orders
     if (paymentMethod === 'cod') {
       await sendPaymentNotification(req.user.userId, 'success', {
         orderId: order._id,
@@ -318,29 +363,45 @@ exports.updateOrderStatus = async (req, res) => {
     ).populate('items.product', 'name images price')
      .populate('user', 'name email');
 
-    // Send email notifications only if sendEmail is true
-    if (sendEmail) {
-      console.log('Sending email notifications...');
-      try {
-        if (orderStatus && orderStatus !== originalStatus) {
-          console.log('Sending order status update email');
-          console.log('User email:', updatedOrder.user.email);
-          console.log('Order details:', { orderNumber: updatedOrder.orderNumber, status: orderStatus });
-          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
-          await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
-        }
+    // Award loyalty points when order is delivered
+    if (orderStatus === 'delivered' && originalStatus !== 'delivered') {
+      const settings = await Settings.getSettings();
+      const loyaltyPointsPerRupee = settings.loyalty?.pointsPerRupee || 0.1; // 1 point for every 10 rupees
+      const pointsAwarded = Math.floor(updatedOrder.total * loyaltyPointsPerRupee);
+      if (pointsAwarded > 0) {
+        await User.findByIdAndUpdate(updatedOrder.user._id, { $inc: { loyaltyPoints: pointsAwarded } });
+        console.log(`Awarded ${pointsAwarded} loyalty points to user ${updatedOrder.user._id}`);
         
-        // Send payment status update email
-        if (paymentStatus && paymentStatus !== order.paymentStatus) {
-          console.log('Sending payment status update email');
-          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, order.paymentStatus, paymentStatus);
-        }
-        
-        // Send delivery date update email
-        if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
-          console.log('Sending delivery date update email');
-          await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
-        }
+        // Send loyalty points email
+        const updatedUser = await User.findById(updatedOrder.user._id);
+        await sendLoyaltyPointsNotification(updatedUser, pointsAwarded, 'earned', {
+          orderNumber: updatedOrder.orderNumber,
+          total: updatedOrder.total
+        });
+      }
+    }
+        if (sendEmail) {
+          console.log('Sending email notifications...');
+          try {
+            if (orderStatus && orderStatus !== originalStatus) {
+              console.log('Sending order status update email');
+              console.log('User email:', updatedOrder.user.email);
+              console.log('Order details:', { orderNumber: updatedOrder.orderNumber, status: orderStatus });
+              await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
+              await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+            }
+            
+            // Send payment status update email for all relevant status changes
+            if (paymentStatus && paymentStatus !== order.paymentStatus) {
+              console.log('Sending payment status update email');
+              await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, order.paymentStatus, paymentStatus);
+            }
+            
+            // Send delivery date update email
+            if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
+              console.log('Sending delivery date update email');
+              await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
+            }
         console.log('Email notifications sent successfully');
       } catch (emailError) {
         console.error('Email sending failed:', emailError);

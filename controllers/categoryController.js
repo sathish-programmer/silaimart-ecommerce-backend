@@ -170,8 +170,13 @@ const deleteCategory = async (req, res) => {
 // Get categories with product count
 const getCategoriesWithCount = async (req, res) => {
   try {
+    const filter = { isActive: true };
+    // Role-based filtering for admin routes
+    if (req.user && req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
     const categories = await Category.aggregate([
-      { $match: { isActive: true } },
+      { $match: filter },
       {
         $lookup: {
           from: 'products',

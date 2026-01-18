@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../middleware/auth');
+const { protect, admin, superAdmin } = require('../middleware/auth');
 
 // Import controllers
 const { 
@@ -10,10 +10,11 @@ const {
   deleteProduct 
 } = require('../controllers/productController');
 
-const { 
-  getAllOrders, 
-  updateOrderStatus, 
-  getOrderById 
+const {
+  getAllOrders,
+  getAdminOrders,
+  updateOrderStatus,
+  getOrderById
 } = require('../controllers/orderController');
 
 const { 
@@ -24,6 +25,7 @@ const {
 
 const { 
   getAllBlogs, 
+  getMyBlogs,
   createBlog, 
   updateBlog, 
   deleteBlog 
@@ -31,13 +33,26 @@ const {
 
 const { 
   getAllCoupons, 
+  getMyCoupons,
   createCoupon, 
   updateCoupon, 
   deleteCoupon 
 } = require('../controllers/couponController');
 
-const { getAllReviews } = require('../controllers/reviewController');
+const { 
+  getAllReviews 
+} = require('../controllers/reviewController');
+
+const {
+  deleteUser,
+  blockUser,
+  unblockUser
+} = require('../controllers/authController');
 const { sendOfferToAllUsers, sendOfferToSpecificUsers } = require('../controllers/offerController');
+const { sendCustomEmail, sendBulkEmail } = require('../controllers/emailController');
+const { getSettings, updateSettings, updateSettingSection, resetSettings, getPublicSettings } = require('../controllers/settingsController');
+const { getPolicies, getPolicyByType, getAllPolicies, upsertPolicy, deletePolicy } = require('../controllers/policyController');
+const { getAllCustomOrderRequests, getCustomOrderRequestById, updateCustomOrderRequest } = require('../controllers/customOrderController');
 
 // Dashboard stats
 router.get('/stats', protect, admin, async (req, res) => {
@@ -108,35 +123,64 @@ router.get('/stats', protect, admin, async (req, res) => {
 router.get('/products', protect, admin, getAllProducts);
 router.post('/products', protect, admin, createProduct);
 router.put('/products/:id', protect, admin, updateProduct);
-router.delete('/products/:id', protect, admin, deleteProduct);
+router.delete('/products/:id', protect, superAdmin, deleteProduct);
 
 // Order routes
 router.get('/orders', protect, admin, getAllOrders);
+router.get('/orders/my-products', protect, admin, getAdminOrders);
 router.get('/orders/:id', protect, admin, getOrderById);
 router.put('/orders/:id/status', protect, admin, updateOrderStatus);
 
 // Category routes
 router.post('/categories', protect, admin, createCategory);
 router.put('/categories/:id', protect, admin, updateCategory);
-router.delete('/categories/:id', protect, admin, deleteCategory);
+router.delete('/categories/:id', protect, superAdmin, deleteCategory);
 
 // Blog routes
 router.get('/blogs', protect, admin, getAllBlogs);
+router.get('/blogs/my-blogs', protect, admin, getMyBlogs);
 router.post('/blogs', protect, admin, createBlog);
 router.put('/blogs/:id', protect, admin, updateBlog);
-router.delete('/blogs/:id', protect, admin, deleteBlog);
+router.delete('/blogs/:id', protect, superAdmin, deleteBlog);
 
 // Coupon routes
 router.get('/coupons', protect, admin, getAllCoupons);
+router.get('/coupons/my-coupons', protect, admin, getMyCoupons);
 router.post('/coupons', protect, admin, createCoupon);
 router.put('/coupons/:id', protect, admin, updateCoupon);
-router.delete('/coupons/:id', protect, admin, deleteCoupon);
+router.delete('/coupons/:id', protect, superAdmin, deleteCoupon);
 
 // Review routes
 router.get('/reviews', protect, admin, getAllReviews);
 
 // Offer email routes
-router.post('/offers/send-all', protect, admin, sendOfferToAllUsers);
+router.post('/offers/send-all', protect, superAdmin, sendOfferToAllUsers);
 router.post('/offers/send-specific', protect, admin, sendOfferToSpecificUsers);
+
+// Email Management routes
+router.post('/emails/send-custom', protect, superAdmin, sendCustomEmail);
+router.post('/emails/send-bulk', protect, superAdmin, sendBulkEmail);
+
+// User Management routes (Superadmin only)
+router.delete('/users/:id', protect, superAdmin, deleteUser);
+router.put('/users/:id/block', protect, superAdmin, blockUser);
+router.put('/users/:id/unblock', protect, superAdmin, unblockUser);
+
+// Settings routes (Superadmin only for update/reset)
+router.get('/settings', protect, admin, getSettings);
+router.put('/settings', protect, superAdmin, updateSettings);
+router.put('/settings/:section', protect, superAdmin, updateSettingSection);
+router.post('/settings/reset', protect, superAdmin, resetSettings);
+
+// Policy routes (Superadmin only for upsert/delete)
+router.get('/policies', protect, admin, getAllPolicies); // Admin can view all policies
+router.post('/policies', protect, superAdmin, upsertPolicy);
+router.put('/policies/:type', protect, superAdmin, upsertPolicy);
+router.delete('/policies/:type', protect, superAdmin, deletePolicy);
+
+// Custom Order Request routes (Admin side)
+router.get('/custom-order-requests', protect, admin, getAllCustomOrderRequests);
+router.get('/custom-order-requests/:id', protect, admin, getCustomOrderRequestById);
+router.put('/custom-order-requests/:id', protect, admin, updateCustomOrderRequest);
 
 module.exports = router;

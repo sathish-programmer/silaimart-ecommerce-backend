@@ -38,6 +38,14 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  loyaltyPointsUsed: {
+    type: Number,
+    default: 0
+  },
+  loyaltyDiscount: {
+    type: Number,
+    default: 0
+  },
   shippingCost: {
     type: Number,
     default: 0

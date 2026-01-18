@@ -70,6 +70,11 @@ exports.getProducts = async (req, res) => {
     } = req.query;
 
     const filter = { isActive: true };
+
+    // If the user is an admin but not a superadmin, filter by createdBy
+    if (req.user && req.user.role === 'admin') {
+      filter.createdBy = req.user.userId;
+    }
     
     if (category) filter.category = category;
     if (minPrice || maxPrice) {

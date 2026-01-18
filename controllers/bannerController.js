@@ -43,6 +43,11 @@ exports.getAllBanners = async (req, res) => {
     
     if (position) filter.position = position;
 
+    // If the user is an admin but not a superadmin, filter by createdBy
+    if (req.user.role === 'admin') {
+      filter.createdBy = req.user.id;
+    }
+
     const banners = await Banner.find(filter)
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })

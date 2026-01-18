@@ -32,8 +32,41 @@ const ensureUniqueSlug = async (slug, excludeId = null) => {
 exports.getAllBlogs = async (req, res) => {
   try {
     const { page = 1, limit = 10, search } = req.query;
-    const filter = {};
+    let filter = {};
     
+    if (req.user.role === 'admin') {
+      filter.author = req.user.userId;
+    }
+    
+    if (search) {
+      filter.$text = { $search: search };
+    }
+
+    const blogs = await Blog.find(filter)
+      .populate('author', 'name')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Blog.countDocuments(filter);
+
+    res.json({
+      success: true,
+      blogs,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getMyBlogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const filter = { author: req.user.userId };
+
     if (search) {
       filter.$text = { $search: search };
     }
