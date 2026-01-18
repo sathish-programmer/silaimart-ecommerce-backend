@@ -1,4 +1,4 @@
-const { Order, Product, Coupon, User, Settings } = require('../models');
+const { Order, Product, Coupon, User, Settings, LoyaltyTransaction } = require('../models');
 const { sendOrderNotification, sendPaymentNotification } = require('../services/notificationService');
 const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate, sendLoyaltyPointsNotification } = require('../services/emailService');
 const crypto = require('crypto');
@@ -115,6 +115,8 @@ exports.createOrder = async (req, res) => {
   try {
     const { items, shippingAddress, paymentMethod, couponCode, loyaltyPointsUsed = 0 } = req.body;
     
+    console.log('Order creation request:', { loyaltyPointsUsed, couponCode });
+    
     let subtotal = 0;
     const orderItems = [];
 
@@ -173,16 +175,21 @@ exports.createOrder = async (req, res) => {
 
     // Handle loyalty points discount
     if (loyaltyPointsUsed > 0) {
+      console.log('Processing loyalty points:', loyaltyPointsUsed);
       const user = await User.findById(req.user.userId);
       const userPoints = Number(user.loyaltyPoints) || 0;
       const pointsToUse = Number(loyaltyPointsUsed) || 0;
       
+      console.log('User points:', userPoints, 'Points to use:', pointsToUse);
+      
       if (userPoints >= pointsToUse) {
         loyaltyDiscount = pointsToUse; // 1 point = 1 rupee
+        console.log('Loyalty discount set to:', loyaltyDiscount);
         // Deduct loyalty points from user
         await User.findByIdAndUpdate(req.user.userId, {
           $inc: { loyaltyPoints: -pointsToUse }
         });
+        console.log('Points deducted from user');
       } else {
         return res.status(400).json({ 
           message: 'Insufficient loyalty points',
@@ -194,7 +201,11 @@ exports.createOrder = async (req, res) => {
 
     const shippingCost = subtotal >= 1000 ? 0 : 50;
     const totalDiscount = discount + loyaltyDiscount;
-    const tax = Math.round((subtotal - totalDiscount) * 0.18);
+    
+    // Get tax rate from settings instead of hardcoding
+    const settings = await Settings.getSettings();
+    const taxRate = settings.tax?.rate || 18; // Default to 18% if not set
+    const tax = Math.round((subtotal - totalDiscount) * (taxRate / 100));
     const total = Math.max(0, subtotal - totalDiscount + shippingCost + tax);
 
     const orderNumber = `SM${Date.now()}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
@@ -218,6 +229,25 @@ exports.createOrder = async (req, res) => {
     });
 
     await order.save();
+
+    // Create loyalty transaction record after order is saved
+    if (loyaltyPointsUsed > 0) {
+      console.log('Creating loyalty transaction for:', loyaltyPointsUsed, 'points');
+      const updatedUser = await User.findById(req.user.userId);
+      const transaction = await LoyaltyTransaction.create({
+        user: req.user.userId,
+        type: 'redeemed',
+        points: loyaltyPointsUsed,
+        description: `Redeemed ${loyaltyPointsUsed} points for order discount`,
+        orderId: order._id,
+        balanceAfter: updatedUser.loyaltyPoints,
+        metadata: {
+          redemptionAmount: loyaltyPointsUsed,
+          orderNumber: order.orderNumber
+        }
+      });
+      console.log('Loyalty transaction created:', transaction._id);
+    }
 
     // Update product stock
     for (const item of items) {
@@ -372,8 +402,22 @@ exports.updateOrderStatus = async (req, res) => {
         await User.findByIdAndUpdate(updatedOrder.user._id, { $inc: { loyaltyPoints: pointsAwarded } });
         console.log(`Awarded ${pointsAwarded} loyalty points to user ${updatedOrder.user._id}`);
         
-        // Send loyalty points email
+        // Create loyalty transaction record
         const updatedUser = await User.findById(updatedOrder.user._id);
+        await LoyaltyTransaction.create({
+          user: updatedOrder.user._id,
+          type: 'earned',
+          points: pointsAwarded,
+          description: `Earned ${pointsAwarded} points for order #${updatedOrder.orderNumber}`,
+          orderId: updatedOrder._id,
+          balanceAfter: updatedUser.loyaltyPoints,
+          metadata: {
+            orderNumber: updatedOrder.orderNumber,
+            orderTotal: updatedOrder.total
+          }
+        });
+        
+        // Send loyalty points email
         await sendLoyaltyPointsNotification(updatedUser, pointsAwarded, 'earned', {
           orderNumber: updatedOrder.orderNumber,
           total: updatedOrder.total
@@ -516,7 +560,7 @@ exports.generateInvoice = async (req, res) => {
     doc.text(order.shippingCost === 0 ? 'Free' : `Rs.${order.shippingCost}`, 450, yPosition);
     yPosition += 15;
     
-    doc.text('Tax (18% GST):', 350, yPosition);
+    doc.text('Tax (GST):', 350, yPosition);
     doc.text(`Rs.${order.tax.toLocaleString()}`, 450, yPosition);
     yPosition += 15;
     

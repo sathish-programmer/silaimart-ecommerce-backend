@@ -9,6 +9,7 @@ const Banner = require('./Banner');
 const Settings = require('./Settings');
 const { BotQuestion, BotFlow } = require('./BotQuestion');
 const CustomizationRequest = require('./CustomizationRequest');
+const LoyaltyTransaction = require('./LoyaltyTransaction');
 
 module.exports = {
   User,
@@ -22,5 +23,6 @@ module.exports = {
   Settings,
   BotQuestion,
   BotFlow,
-  CustomizationRequest
+  CustomizationRequest,
+  LoyaltyTransaction
 };

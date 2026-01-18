@@ -24,6 +24,7 @@ const offerRoutes = require('./routes/offers');
 const adminRoutes = require('./routes/admin');
 const testRoutes = require('./routes/test');
 const masterValuesRoutes = require('./routes/masterValues');
+const loyaltyRoutes = require('./routes/loyalty');
 
 const app = express();
 
@@ -98,6 +99,7 @@ app.use('/api/offers', offerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/master-values', masterValuesRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 
 /* -------------------------------
    Health Check
