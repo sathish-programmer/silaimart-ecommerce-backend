@@ -1,8 +1,11 @@
 const express = require('express');
-const { createOrder, getOrders, getOrder, updateOrderStatus, generateInvoice } = require('../controllers/orderController');
+const { createOrder, getOrders, getOrder, updateOrderStatus, generateInvoice, trackOrder } = require('../controllers/orderController');
 const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Public routes
+router.get('/track/:orderNumber', trackOrder);
 
 // User routes
 router.post('/', auth, createOrder);

@@ -16,27 +16,27 @@ const generateToken = (userId, sessionId) => {
 const getDeviceInfo = (req) => {
   const userAgent = req.headers['user-agent'] || '';
   const ip = req.ip || req.connection.remoteAddress || '';
-  
+
   // Simple device detection (you can use a library like 'device' for better detection)
   let device = 'Unknown Device';
   let browser = 'Unknown Browser';
   let os = 'Unknown OS';
-  
+
   if (userAgent.includes('Mobile')) device = 'Mobile';
   else if (userAgent.includes('Tablet')) device = 'Tablet';
   else device = 'Desktop';
-  
+
   if (userAgent.includes('Chrome')) browser = 'Chrome';
   else if (userAgent.includes('Firefox')) browser = 'Firefox';
   else if (userAgent.includes('Safari')) browser = 'Safari';
   else if (userAgent.includes('Edge')) browser = 'Edge';
-  
+
   if (userAgent.includes('Windows')) os = 'Windows';
   else if (userAgent.includes('Mac')) os = 'macOS';
   else if (userAgent.includes('Linux')) os = 'Linux';
   else if (userAgent.includes('Android')) os = 'Android';
   else if (userAgent.includes('iOS')) os = 'iOS';
-  
+
   return { userAgent, ip, device, browser, os };
 };
 
@@ -53,7 +53,7 @@ exports.register = async (req, res) => {
     await user.save();
 
     const token = generateToken(user._id);
-    
+
     res.status(201).json({
       message: 'User registered successfully',
       token,
@@ -79,30 +79,37 @@ exports.login = async (req, res) => {
     }
 
     const deviceInfo = getDeviceInfo(req);
-    
+
     // Check if this is a new device
-    const existingSession = user.sessions.find(session => 
-      session.isActive && 
+    const existingSession = user.sessions.find(session =>
+      session.isActive &&
       session.deviceInfo.userAgent === deviceInfo.userAgent &&
       session.deviceInfo.ip === deviceInfo.ip
     );
-    
+
     // If new device, send alert email
-    if (!existingSession) {
+    // If new device, send alert email
+    // Only send to regular users, skip admins/superadmins to avoid spam
+    if (!existingSession && user.role === 'user') {
       try {
+        let location = 'Unknown Location';
+        if (deviceInfo.ip === '::1' || deviceInfo.ip === '127.0.0.1') {
+          location = 'Localhost';
+        }
+
         await sendNewDeviceLoginAlert(user, {
           ...deviceInfo,
-          location: 'Unknown Location' // You can integrate with IP geolocation service
+          location: location
         });
       } catch (emailError) {
         console.error('Failed to send new device alert:', emailError);
       }
     }
-    
+
     // Create new session
     const sessionId = new mongoose.Types.ObjectId();
     const token = generateToken(user._id, sessionId);
-    
+
     user.sessions.push({
       _id: sessionId,
       token,
@@ -111,14 +118,14 @@ exports.login = async (req, res) => {
       lastActivity: new Date(),
       expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days
     });
-    
+
     // Clean up expired sessions
-    user.sessions = user.sessions.filter(session => 
+    user.sessions = user.sessions.filter(session =>
       session.expiresAt > new Date() || session._id.equals(sessionId)
     );
-    
+
     await user.save();
-    
+
     res.json({
       message: 'Login successful',
       token,
@@ -160,7 +167,7 @@ exports.updateProfile = async (req, res) => {
     user.phone = phone || user.phone;
 
     await user.save();
-    
+
     res.json({ message: 'Profile updated successfully', user: user.toObject({ getters: true }) });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -491,7 +498,7 @@ exports.redeemLoyaltyPoints = async (req, res) => {
     const redeemPoints = Number(pointsToRedeem) || 0;
 
     if (userPoints < redeemPoints) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Insufficient loyalty points',
         availablePoints: userPoints,
         requestedPoints: redeemPoints
@@ -528,11 +535,11 @@ exports.logout = async (req, res) => {
   try {
     const { logoutAll = false } = req.body;
     const user = await User.findById(req.user.userId);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     if (logoutAll) {
       // Logout from all devices
       user.sessions = user.sessions.map(session => ({
@@ -541,19 +548,19 @@ exports.logout = async (req, res) => {
       }));
     } else {
       // Logout from current device only
-      const sessionIndex = user.sessions.findIndex(session => 
+      const sessionIndex = user.sessions.findIndex(session =>
         session._id.equals(req.user.sessionId)
       );
       if (sessionIndex !== -1) {
         user.sessions[sessionIndex].isActive = false;
       }
     }
-    
+
     await user.save();
-    
-    res.json({ 
-      success: true, 
-      message: logoutAll ? 'Logged out from all devices' : 'Logged out successfully' 
+
+    res.json({
+      success: true,
+      message: logoutAll ? 'Logged out from all devices' : 'Logged out successfully'
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -563,7 +570,7 @@ exports.logout = async (req, res) => {
 exports.getSessions = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('sessions');
-    
+
     const activeSessions = user.sessions
       .filter(session => session.isActive && session.expiresAt > new Date())
       .map(session => ({
@@ -575,10 +582,10 @@ exports.getSessions = async (req, res) => {
         lastActivity: session.lastActivity,
         isCurrent: session._id.equals(req.user.sessionId)
       }));
-    
-    res.json({ 
-      success: true, 
-      sessions: activeSessions 
+
+    res.json({
+      success: true,
+      sessions: activeSessions
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -589,21 +596,21 @@ exports.terminateSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const user = await User.findById(req.user.userId);
-    
-    const sessionIndex = user.sessions.findIndex(session => 
+
+    const sessionIndex = user.sessions.findIndex(session =>
       session._id.toString() === sessionId
     );
-    
+
     if (sessionIndex === -1) {
       return res.status(404).json({ message: 'Session not found' });
     }
-    
+
     user.sessions[sessionIndex].isActive = false;
     await user.save();
-    
-    res.json({ 
-      success: true, 
-      message: 'Session terminated successfully' 
+
+    res.json({
+      success: true,
+      message: 'Session terminated successfully'
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -620,7 +627,7 @@ exports.deleteAccount = async (req, res) => {
     // Delete user's orders, custom requests, etc.
     await Order.deleteMany({ user: req.user.userId });
     await CustomOrderRequest.deleteMany({ user: req.user.userId });
-    
+
     // Delete the user account
     await User.findByIdAndDelete(req.user.userId);
 
