@@ -89,6 +89,8 @@ async function generateBotResponse(userMessage, userId) {
     }
   }
 
+  const userName = user ? user.name.split(' ')[0] : '';
+
   // Check for predefined responses first
   for (const response of bot?.responses || []) {
     if (response.isActive && response.trigger.some(trigger =>
@@ -101,254 +103,15 @@ async function generateBotResponse(userMessage, userId) {
     }
   }
 
-  // Enhanced product search with specific deity/product names
-  const productKeywords = ['ganesha', 'vinayagar', 'shiva', 'vishnu', 'krishna', 'hanuman', 'durga', 'lakshmi', 'saraswati', 'buddha', 'sculpture', 'statue', 'murti', 'idol'];
-  const hasProductKeyword = productKeywords.some(keyword => message.includes(keyword));
-
-  if (hasProductKeyword || message.includes('show') || message.includes('find') || message.includes('search')) {
-    const products = await searchProducts(message);
-    if (products.length > 0) {
-      return {
-        message: `I found ${products.length} beautiful sculptures for you${user ? ', ' + user.name.split(' ')[0] : ''}! Here are some recommendations:`,
-        type: 'product',
-        data: {
-          products: products.slice(0, 4),
-          suggestions: [
-            'Would you like to see more options?',
-            'Do you have a specific size in mind?',
-            'Are you looking for a particular material?'
-          ]
-        }
-      };
-    } else {
-      return {
-        message: 'I couldn\'t find exact matches, but here are some popular sculptures you might like:',
-        type: 'product',
-        data: {
-          products: await getPopularProducts(),
-          suggestions: [
-            'Try searching for: Ganesha, Shiva, Krishna',
-            'Browse by category: Religious, Decorative',
-            'Filter by price range'
-          ]
-        }
-      };
-    }
-  }
-
-  // Main Menu / Show Options
-  if (message.includes('menu') || message.includes('option') || message.includes('help') || message.includes('start over')) {
-    return {
-      message: `I'm here to help${user ? ', ' + user.name.split(' ')[0] : ''}! Please choose an option below:`,
-      type: 'action',
-      data: {
-        suggestions: [
-          '🕉️ Browse Sculptures',
-          '📦 Track Order',
-          '🚚 Shipping Info',
-          '💰 Pricing & Deals'
-        ],
-        quickReplies: [
-          { text: 'Show Products', action: 'Show me your sculptures' },
-          { text: 'Track Order', action: 'Track order' },
-          { text: 'Help & Support', action: 'I need help' }
-        ]
-      }
-    };
-  }
-
-  // Help and support responses
-  if (message.includes('support') || message.includes('problem')) {
-    return {
-      message: `I'm here to support you${user ? ', ' + user.name.split(' ')[0] : ''}! What do you need assistance with?`,
-      type: 'action',
-      data: {
-        quickReplies: [
-          { text: 'Product Information', action: 'Tell me about your sculptures' },
-          { text: 'Order Status', action: 'Check my order status' },
-          { text: 'Shipping Details', action: 'Shipping information' },
-          { text: 'Return Policy', action: 'What is your return policy?' }
-        ]
-      }
-    };
-  }
-
-  // Price inquiry with suggestions
-  if (message.includes('price') || message.includes('cost') || message.includes('₹')) {
-    return {
-      message: 'Our divine sculptures range from ₹500 to ₹50,000. Here\'s what we offer:',
-      type: 'action',
-      data: {
-        priceRanges: [
-          { range: '₹500 - ₹2,000', description: 'Small decorative pieces' },
-          { range: '₹2,000 - ₹10,000', description: 'Medium sculptures' },
-          { range: '₹10,000 - ₹50,000', description: 'Large premium sculptures' }
-        ],
-        quickReplies: [
-          { text: 'Show Budget Options', action: 'Show sculptures under 2000' },
-          { text: 'Premium Collection', action: 'Show premium sculptures' }
-        ]
-      }
-    };
-  }
-
-  // Shipping inquiry
-  if (message.includes('shipping') || message.includes('delivery')) {
-    return {
-      message: 'We offer reliable shipping across India with these options:',
-      type: 'action',
-      data: {
-        shippingInfo: [
-          { type: 'Free Shipping', condition: 'Orders above ₹1,000', time: '5-7 business days' },
-          { type: 'Express Delivery', condition: 'Additional ₹150', time: '2-3 business days' },
-          { type: 'Same Day', condition: 'Available in select cities', time: 'Within 24 hours' }
-        ],
-        quickReplies: [
-          { text: 'Check Delivery Time', action: 'What is delivery time to my location?' },
-          { text: 'Track My Order', action: 'Track my order' }
-        ]
-      }
-    };
-  }
-
-  // Specific prompt for Order ID
-  if (message.toLowerCase() === 'track order sm' || message.toLowerCase() === 'i have an order id') {
-    return {
-      message: "Please enter your full Order ID (e.g., SM123456789) to track your package.",
-      type: 'text'
-    };
-  }
-
-  // Order tracking by ID or keyword
-  const orderIdMatch = message.match(/sm\d+[a-z0-9]*/i);
-  if (orderIdMatch) {
-    const orderId = orderIdMatch[0].toUpperCase();
-    const order = await Order.findOne({ orderNumber: orderId }).populate('items.product');
-
-    if (order) {
-      let deliveryMsg = '';
-      if (order.orderStatus.toLowerCase() === 'delivered') {
-        deliveryMsg = order.deliveredAt ? `Delivered on ${new Date(order.deliveredAt).toLocaleDateString()}` : 'Delivered';
-      } else {
-        deliveryMsg = `Estimated delivery: ${order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate).toLocaleDateString() : 'Pending confirmation'}`;
-      }
-
-      const itemNames = order.items.map(item => `${item.product?.name || 'Item'} (x${item.quantity})`).join(', ');
-
-      const steps = [
-        `Status: ${order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}`,
-        `Total: ₹${order.total.toLocaleString('en-IN')}`,
-        `Items: ${order.items.length} - ${itemNames}`
-      ];
-
-      if (order.trackingNumber) steps.push(`Tracking #: ${order.trackingNumber}`);
-      if (order.shippingAddress) {
-        const addr = order.shippingAddress;
-        steps.push(`Ship to: ${addr.name}, ${addr.street || ''}, ${addr.city}, ${addr.state} - ${addr.pincode}`);
-      }
-
-      return {
-        message: `I found order #${order.orderNumber}. It is currently **${order.orderStatus.toUpperCase()}**. ${deliveryMsg}.`,
-        type: 'action',
-        data: {
-          steps: steps,
-          quickReplies: [
-            { text: 'View Order Details', action: `redirect:/orders/${order._id}` },
-            { text: 'Track Another Order', action: 'Track order' }
-          ]
-        }
-      };
-    } else {
-      return {
-        message: `I couldn't find an order with ID ${orderId}. Please check the ID and try again.`,
-        type: 'text'
-      };
-    }
-  }
-
-  // General Order status and tracking inquiry
-  if (message.includes('order') && (message.includes('status') || message.includes('track') || message.includes('where'))) {
-    if (lastOrder) {
-      // Ensure we populate lastOrder if it wasn't already (though lastOrder is passed in args, we might need to fetch it again to populate if not already populated)
-      // Assuming lastOrder passed to this function might handle it, but better to re-fetch if needed. 
-      // Actually, checking how lastOrder is derived... it's passed into `processMessage`.
-      // Getting it fresh is safer for population.
-      const freshLastOrder = await Order.findById(lastOrder._id).populate('items.product');
-
-      let deliveryMsg = '';
-      if (freshLastOrder.orderStatus.toLowerCase() === 'delivered') {
-        deliveryMsg = freshLastOrder.deliveredAt ? `Delivered on ${new Date(freshLastOrder.deliveredAt).toLocaleDateString()}` : 'Delivered';
-      } else {
-        deliveryMsg = `Estimated delivery: ${freshLastOrder.estimatedDeliveryDate ? new Date(freshLastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Pending confirmation'}`;
-      }
-
-      const itemNames = freshLastOrder.items.map(item => `${item.product?.name || 'Item'} (x${item.quantity})`).join(', ');
-
-      const steps = [
-        `Status: ${freshLastOrder.orderStatus.charAt(0).toUpperCase() + freshLastOrder.orderStatus.slice(1)}`,
-        `Total: ₹${freshLastOrder.total.toLocaleString('en-IN')}`,
-        `Items: ${freshLastOrder.items.length} - ${itemNames}`
-      ];
-
-      if (freshLastOrder.trackingNumber) steps.push(`Tracking #: ${freshLastOrder.trackingNumber}`);
-      if (freshLastOrder.shippingAddress) {
-        const addr = freshLastOrder.shippingAddress;
-        steps.push(`Ship to: ${addr.name}, ${addr.street || ''}, ${addr.city}, ${addr.state} - ${addr.pincode}`);
-      }
-
-      return {
-        message: `Your last order #${freshLastOrder.orderNumber} is currently **${freshLastOrder.orderStatus.toUpperCase()}**. ${deliveryMsg}.`,
-        type: 'action',
-        data: {
-          steps: steps,
-          quickReplies: [
-            { text: 'View Order Details', action: `redirect:/orders/${freshLastOrder._id}` },
-            { text: 'Track Another Order', action: 'I need help with another order' }
-          ]
-        }
-      };
-    } else {
-      return {
-        message: user ? `I couldn't find any recent orders for you, ${user.name.split(' ')[0]}.` : 'To track your order, please provide your **Order ID** (e.g., SM123456789) or log in to see your history.',
-        type: 'action',
-        data: {
-          suggestions: [
-            'Type "Track order SM..."',
-            'Login to view history'
-          ],
-          quickReplies: [
-            { text: 'Login', action: 'redirect:/login' },
-            { text: 'I have an Order ID', action: 'Track order SM' }
-          ]
-        }
-      };
-    }
-  }
-
-  // Material and craftsmanship questions
-  if (message.includes('material') || message.includes('stone') || message.includes('marble')) {
-    return {
-      message: 'Our sculptures are crafted from premium materials:',
-      type: 'action',
-      data: {
-        materials: [
-          { name: 'White Marble', description: 'Premium Makrana marble, perfect finish' },
-          { name: 'Black Granite', description: 'Durable and elegant, long-lasting' },
-          { name: 'Sandstone', description: 'Traditional carved sculptures' },
-          { name: 'Bronze', description: 'Antique finish, premium collection' }
-        ],
-        quickReplies: [
-          { text: 'Show Marble Sculptures', action: 'Show marble sculptures' },
-          { text: 'Granite Collection', action: 'Show granite sculptures' }
-        ]
-      }
-    };
-  }
-
-  // Greeting responses
+  // Greeting responses (Varied)
   if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
+    const greetings = [
+      `Namaste${userName ? ' ' + userName : ''}! Welcome to SilaiMart. How can I assist you in finding the perfect divine sculpture today? 🙏`,
+      `Hello${userName ? ' ' + userName : ''}! It's a pleasure to have you here. Looking for a specific deity or material? ✨`,
+      `Hi there! Hope you're having a blessed day. How can I help you explore our sacred collection? 🕉️`
+    ];
     return {
-      message: `Hello${user ? ' ' + user.name.split(' ')[0] : ''}! Welcome to SilaiMart! 🙏 I'm here to help you find the perfect divine sculpture.`,
+      message: greetings[Math.floor(Math.random() * greetings.length)],
       type: 'action',
       data: {
         quickReplies: [
@@ -360,43 +123,157 @@ async function generateBotResponse(userMessage, userId) {
     };
   }
 
-  // Help & Support specific handler
-  if (message.includes('help') || message.includes('support') || message.includes('assist')) {
+  // Enhanced product search
+  const productKeywords = ['ganesha', 'vinayagar', 'shiva', 'vishnu', 'krishna', 'hanuman', 'durga', 'lakshmi', 'saraswati', 'buddha', 'sculpture', 'statue', 'murti', 'idol', 'bronze', 'stone', 'marble'];
+  const hasProductKeyword = productKeywords.some(keyword => message.includes(keyword));
+
+  if (hasProductKeyword || message.includes('show') || message.includes('find') || message.includes('search')) {
+    const products = await searchProducts(message);
+    if (products.length > 0) {
+      const responses = [
+        `I've found some exquisite pieces for you${userName ? ', ' + userName : ''}. Here are the top matches from our collection:`,
+        `Based on your request, I recommend these divine sculptures:`,
+        `Here are some sacred art pieces that might be what you're looking for:`
+      ];
+      return {
+        message: responses[Math.floor(Math.random() * responses.length)],
+        type: 'product',
+        data: {
+          products: products.slice(0, 6), // Return more products
+          suggestions: [
+            'Can I see more details for one of these?',
+            'What materials are these made from?',
+            'Do you have any smaller sizes?'
+          ]
+        }
+      };
+    } else {
+      return {
+        message: "I couldn't find exact matches for that term, but our featured collection is truly special. Take a look:",
+        type: 'product',
+        data: {
+          products: await getPopularProducts(),
+          suggestions: [
+            'Search for Ganesha',
+            'Search for Shiva',
+            'Show marble sculptures'
+          ]
+        }
+      };
+    }
+  }
+
+  // Detailed Help & Support
+  if (message.includes('help') || message.includes('support') || message.includes('assist') || message.includes('menu')) {
     return {
-      message: "Here are some ways I can assist you directly:",
+      message: `I'm here to ensure your experience with SilaiMart is seamless${userName ? ', ' + userName : ''}. What can I guide you with today?`,
       type: 'action',
       data: {
         suggestions: [
-          '📞 Contact our support team',
           '📦 Track an existing order',
-          '🔄 Learn about returns & refunds',
-          '🚚 Shipping information'
+          '🚚 Shipping & Delivery timelines',
+          '🔄 Returns & Refund policy',
+          '💎 Material & Craftsmanship details',
+          '📞 Talk to our artisan support'
         ],
         quickReplies: [
-          { text: 'Contact Support', action: 'redirect:/support' },
-          { text: 'Track Order', action: 'redirect:/track-order' },
-          { text: 'Return Policy', action: 'redirect:/policy/return' }
+          { text: 'Track Order', action: 'Track my order' },
+          { text: 'Returns Info', action: 'What is your return policy?' },
+          { text: 'Shipping Details', action: 'Shipping information' },
+          { text: 'Contact Us', action: 'redirect:/support' }
         ]
       }
     };
   }
 
-  // Default intelligent response with suggestions
+  // Material and craftsmanship
+  if (message.includes('material') || message.includes('stone') || message.includes('marble') || message.includes('brass') || message.includes('bronze')) {
+    return {
+      message: 'At SilaiMart, we pride ourselves on using sacred materials for our art:',
+      type: 'action',
+      data: {
+        steps: [
+          "**Makrana Marble**: Pure white marble, renowned for its spiritual radiance.",
+          "**Panchaloha Bronze**: A traditional five-metal alloy used in Chola-style casting.",
+          "**Black Granite**: Durable, high-detail stone from Southern India.",
+          "**Natural Sandstone**: Echoing the textures of India's ancient cave temples."
+        ],
+        quickReplies: [
+          { text: 'Show Marble Art', action: 'Show marble sculptures' },
+          { text: 'Bronze Collection', action: 'Show bronze sculptures' }
+        ]
+      }
+    };
+  }
+
+  // Pricing & Deals
+  if (message.includes('price') || message.includes('cost') || message.includes('₹') || message.includes('offer') || message.includes('discount')) {
+    return {
+      message: 'We offer divine art across various price ranges to suit every home:',
+      type: 'action',
+      data: {
+        priceRanges: [
+          { range: '₹500 - ₹2,000', description: 'Small decorative and gift items' },
+          { range: '₹2,000 - ₹10,000', description: 'Medium-sized household shrines' },
+          { range: '₹10,000+', description: 'Premium large-scale artisan masterpieces' }
+        ],
+        quickReplies: [
+          { text: 'Budget Finds', action: 'Show products under 2000' },
+          { text: 'Current Offers', action: 'Show current offers' }
+        ]
+      }
+    };
+  }
+
+  // Shipping & Tracking
+  if (message.includes('shipping') || message.includes('delivery') || message.includes('order status') || message.includes('track')) {
+    if (lastOrder && !message.match(/sm\d+/i)) {
+      const freshLastOrder = await Order.findById(lastOrder._id).populate('items.product');
+      return {
+        message: `Your most recent order #${freshLastOrder.orderNumber} is currently **${freshLastOrder.orderStatus.toUpperCase()}**.`,
+        type: 'action',
+        data: {
+          steps: [
+            `Status: ${freshLastOrder.orderStatus}`,
+            `Estimated Delivery: ${freshLastOrder.estimatedDeliveryDate ? new Date(freshLastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Confirmed soon'}`,
+            `Items: ${freshLastOrder.items.length} item(s)`
+          ],
+          quickReplies: [
+            { text: 'View Full Order', action: `redirect:/orders/${freshLastOrder._id}` },
+            { text: 'Track Another', action: 'I have another Order ID' }
+          ]
+        }
+      };
+    }
+
+    return {
+      message: 'We deliver sacred art safely to your doorstep. What would you like to know?',
+      type: 'action',
+      data: {
+        quickReplies: [
+          { text: 'Shipping Rates', action: 'What is shipping cost?' },
+          { text: 'I have an Order ID', action: 'Track order sm' },
+          { text: 'Delivery Times', action: 'How long does delivery take?' }
+        ]
+      }
+    };
+  }
+
+  // Default Fallback (Varied)
+  const fallbacks = [
+    `I'm not quite sure I follow, but I'd love to help you find something special${userName ? ', ' + userName : ''}. Try asking about a specific deity like 'Ganesha' or 'Shiva'.`,
+    `I'm still learning the way of the artist! Could you rephrase that? Or would you like to see our most popular sculptures?`,
+    `That's a great question! While I might not have a specific answer for that yet, I can certainly help you track an order or browse our collection.`
+  ];
   return {
-    message: `I'd love to help you find the perfect sculpture${user ? ', ' + user.name.split(' ')[0] : ''}! Here are some things I can assist you with:`,
+    message: fallbacks[Math.floor(Math.random() * fallbacks.length)],
     type: 'action',
     data: {
       suggestions: [
-        '🕉️ Find sculptures by deity (Ganesha, Shiva, Krishna)',
-        '💰 Get pricing information and deals',
-        '🚚 Learn about shipping and delivery',
-        '📞 Get support and help',
-        '📦 Track your orders'
-      ],
-      quickReplies: [
-        { text: 'Show Ganesha Sculptures', action: 'Show me Ganesha sculptures' },
-        { text: 'What\'s Popular?', action: 'What are your popular items?' },
-        { text: 'Pricing Info', action: 'Tell me about pricing' }
+        '🕉️ Browse divine statues',
+        '📦 Check order status',
+        '💎 Learn about materials',
+        '📞 Talk to support'
       ]
     }
   };
