@@ -7,7 +7,7 @@ exports.getAllOrders = async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
-    
+
     if (status) filter.orderStatus = status;
 
     const orders = await Order.find(filter)
@@ -83,8 +83,8 @@ exports.getOrderById = async (req, res) => {
       .populate('user', 'name email phone');
 
     if (!order) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         message: 'Order not found',
         order: null
       });
@@ -95,16 +95,16 @@ exports.getOrderById = async (req, res) => {
       order.items = [];
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       order: {
         ...order.toObject(),
         items: order.items || []
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message,
       order: null
     });
@@ -114,9 +114,9 @@ exports.getOrderById = async (req, res) => {
 exports.createOrder = async (req, res) => {
   try {
     const { items, shippingAddress, paymentMethod, couponCode, loyaltyPointsUsed = 0 } = req.body;
-    
+
     console.log('Order creation request:', { loyaltyPointsUsed, couponCode });
-    
+
     let subtotal = 0;
     const orderItems = [];
 
@@ -125,10 +125,10 @@ exports.createOrder = async (req, res) => {
       if (!product) {
         return res.status(404).json({ message: `Product ${item.product} not found` });
       }
-      
+
       if (product.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for ${product.name}` 
+        return res.status(400).json({
+          message: `Insufficient stock for ${product.name}`
         });
       }
 
@@ -139,7 +139,7 @@ exports.createOrder = async (req, res) => {
         price: product.price,
         discountPrice: product.discountPrice
       });
-      
+
       subtotal += price * item.quantity;
     }
 
@@ -149,7 +149,7 @@ exports.createOrder = async (req, res) => {
 
     // Handle coupon discount
     if (couponCode) {
-      coupon = await Coupon.findOne({ 
+      coupon = await Coupon.findOne({
         code: couponCode.toUpperCase(),
         isActive: true,
         validFrom: { $lte: new Date() },
@@ -165,7 +165,7 @@ exports.createOrder = async (req, res) => {
         } else {
           discount = coupon.value;
         }
-        
+
         await Coupon.updateOne(
           { _id: coupon._id },
           { $inc: { usedCount: 1 } }
@@ -179,9 +179,9 @@ exports.createOrder = async (req, res) => {
       const user = await User.findById(req.user.userId);
       const userPoints = Number(user.loyaltyPoints) || 0;
       const pointsToUse = Number(loyaltyPointsUsed) || 0;
-      
+
       console.log('User points:', userPoints, 'Points to use:', pointsToUse);
-      
+
       if (userPoints >= pointsToUse) {
         loyaltyDiscount = pointsToUse; // 1 point = 1 rupee
         console.log('Loyalty discount set to:', loyaltyDiscount);
@@ -191,7 +191,7 @@ exports.createOrder = async (req, res) => {
         });
         console.log('Points deducted from user');
       } else {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'Insufficient loyalty points',
           availablePoints: userPoints,
           requestedPoints: pointsToUse
@@ -201,7 +201,7 @@ exports.createOrder = async (req, res) => {
 
     const shippingCost = subtotal >= 1000 ? 0 : 50;
     const totalDiscount = discount + loyaltyDiscount;
-    
+
     // Get tax rate from settings instead of hardcoding
     const settings = await Settings.getSettings();
     const taxRate = settings.tax?.rate || 18; // Default to 18% if not set
@@ -265,19 +265,19 @@ exports.createOrder = async (req, res) => {
     const user = await User.findById(req.user.userId);
     await sendOrderConfirmation(order, user);
     await sendOrderNotification(req.user.userId, order._id, 'created', order);
-    
+
     if (paymentMethod === 'cod') {
       await sendPaymentNotification(req.user.userId, 'success', {
         orderId: order._id,
         amount: order.total
       });
     }
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'Order created successfully', 
+
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
       order,
-      orderNumber: order.orderNumber 
+      orderNumber: order.orderNumber
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -288,11 +288,11 @@ exports.getOrders = async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
-    
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
-    
+
     if (status) filter.orderStatus = status;
 
     const orders = await Order.find(filter)
@@ -312,8 +312,8 @@ exports.getOrders = async (req, res) => {
       total
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message,
       orders: [],
       totalPages: 0,
@@ -335,8 +335,8 @@ exports.getOrder = async (req, res) => {
       .populate('user', 'name email phone');
 
     if (!order) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         message: 'Order not found',
         order: null
       });
@@ -347,16 +347,16 @@ exports.getOrder = async (req, res) => {
       order.items = [];
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       order: {
         ...order.toObject(),
         items: order.items || []
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message,
       order: null
     });
@@ -366,17 +366,17 @@ exports.getOrder = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderStatus, paymentStatus, trackingNumber, notes, estimatedDeliveryDate, deliveryNotes, sendEmail } = req.body;
-    
+
     console.log('Update order request:', { orderStatus, paymentStatus, sendEmail, orderId: req.params.id });
-    
+
     const order = await Order.findById(req.params.id).populate('user', 'name email');
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     const originalStatus = order.orderStatus;
     const originalDeliveryDate = order.estimatedDeliveryDate;
-    
+
     const updateData = {};
     if (orderStatus) updateData.orderStatus = orderStatus;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -385,13 +385,13 @@ exports.updateOrderStatus = async (req, res) => {
     if (estimatedDeliveryDate) updateData.estimatedDeliveryDate = new Date(estimatedDeliveryDate);
     if (deliveryNotes) updateData.deliveryNotes = deliveryNotes;
     if (orderStatus === 'delivered') updateData.actualDeliveryDate = new Date();
-    
+
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true }
     ).populate('items.product', 'name images price')
-     .populate('user', 'name email');
+      .populate('user', 'name email');
 
     // Award loyalty points when order is delivered
     if (orderStatus === 'delivered' && originalStatus !== 'delivered') {
@@ -401,7 +401,7 @@ exports.updateOrderStatus = async (req, res) => {
       if (pointsAwarded > 0) {
         await User.findByIdAndUpdate(updatedOrder.user._id, { $inc: { loyaltyPoints: pointsAwarded } });
         console.log(`Awarded ${pointsAwarded} loyalty points to user ${updatedOrder.user._id}`);
-        
+
         // Create loyalty transaction record
         const updatedUser = await User.findById(updatedOrder.user._id);
         await LoyaltyTransaction.create({
@@ -416,36 +416,85 @@ exports.updateOrderStatus = async (req, res) => {
             orderTotal: updatedOrder.total
           }
         });
-        
+
         // Send loyalty points email
         await sendLoyaltyPointsNotification(updatedUser, pointsAwarded, 'earned', {
           orderNumber: updatedOrder.orderNumber,
           total: updatedOrder.total
         });
       }
+
+      // ── Generate and send Invoice upon delivery ──
+      try {
+        console.log('Generating PDF invoice for automatic delivery...');
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ margin: 50 });
+        let chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', async () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          await require('../services/emailService').sendInvoiceEmail(updatedOrder, updatedOrder.user, pdfBuffer);
+          console.log('Invoice emailed successfully to', updatedOrder.user.email);
+        });
+
+        // Simplified Invoice Generation Logic (DRY could be improved by extracting this)
+        doc.fontSize(20).text('SILAIMART', 50, 50);
+        doc.fontSize(12).text('Divine Art to Your Doorstep', 50, 75);
+        doc.fontSize(18).text('INVOICE', 400, 50);
+        doc.fontSize(12).text(`Invoice #: ${updatedOrder.orderNumber}`, 400, 75);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 400, 105);
+
+        doc.text('Bill To:', 50, 130);
+        doc.text(updatedOrder.shippingAddress.name, 50, 145);
+        doc.text(updatedOrder.shippingAddress.street, 50, 160);
+        doc.text(`${updatedOrder.shippingAddress.city}, ${updatedOrder.shippingAddress.state}, ${updatedOrder.shippingAddress.pincode}`, 50, 175);
+
+        doc.moveTo(50, 210).lineTo(550, 210).stroke();
+        doc.text('Item', 50, 220);
+        doc.text('Qty', 300, 220);
+        doc.text('Total', 450, 220);
+
+        let y = 240;
+        updatedOrder.items.forEach(item => {
+          const price = item.discountPrice || item.price;
+          doc.text(item.product.name, 50, y);
+          doc.text(item.quantity.toString(), 300, y);
+          doc.text(`Rs.${(price * item.quantity).toLocaleString()}`, 450, y);
+          y += 20;
+        });
+
+        doc.moveTo(300, y + 10).lineTo(550, y + 10).stroke();
+        doc.text('Total Amount:', 350, y + 30);
+        doc.fontSize(14).text(`Rs.${updatedOrder.total.toLocaleString()}`, 450, y + 30);
+
+        doc.end();
+      } catch (pdfError) {
+        console.error('Failed to auto-generate or send invoice:', pdfError);
+      }
     }
-        if (sendEmail) {
-          console.log('Sending email notifications...');
-          try {
-            if (orderStatus && orderStatus !== originalStatus) {
-              console.log('Sending order status update email');
-              console.log('User email:', updatedOrder.user.email);
-              console.log('Order details:', { orderNumber: updatedOrder.orderNumber, status: orderStatus });
-              await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
-              await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
-            }
-            
-            // Send payment status update email for all relevant status changes
-            if (paymentStatus && paymentStatus !== order.paymentStatus) {
-              console.log('Sending payment status update email');
-              await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, order.paymentStatus, paymentStatus);
-            }
-            
-            // Send delivery date update email
-            if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
-              console.log('Sending delivery date update email');
-              await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
-            }
+    if (sendEmail) {
+      console.log('Sending email notifications...');
+      try {
+        if (orderStatus && orderStatus !== originalStatus) {
+          console.log('Sending order status update email');
+          console.log('User email:', updatedOrder.user.email);
+          console.log('Order details:', { orderNumber: updatedOrder.orderNumber, status: orderStatus });
+          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, originalStatus, orderStatus);
+          await sendOrderNotification(updatedOrder.user._id, req.params.id, orderStatus, updatedOrder);
+        }
+
+        // Send payment status update email for all relevant status changes
+        if (paymentStatus && paymentStatus !== order.paymentStatus) {
+          console.log('Sending payment status update email');
+          await sendOrderStatusUpdate(updatedOrder, updatedOrder.user, order.paymentStatus, paymentStatus);
+        }
+
+        // Send delivery date update email
+        if (estimatedDeliveryDate && originalDeliveryDate?.getTime() !== new Date(estimatedDeliveryDate).getTime()) {
+          console.log('Sending delivery date update email');
+          await sendDeliveryDateUpdate(updatedOrder, updatedOrder.user);
+        }
         console.log('Email notifications sent successfully');
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
@@ -455,11 +504,12 @@ exports.updateOrderStatus = async (req, res) => {
       console.log('Email sending skipped (sendEmail = false)');
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Order updated successfully', 
-      order: updatedOrder 
+    res.json({
+      success: true,
+      message: 'Order updated successfully',
+      order: updatedOrder
     });
+
   } catch (error) {
     console.error('Update order error:', error);
     res.status(500).json({ message: error.message });
@@ -482,33 +532,33 @@ exports.generateInvoice = async (req, res) => {
     }
 
     if (!['delivered', 'completed'].includes(order.orderStatus)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invoice only available for delivered orders' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invoice only available for delivered orders'
       });
     }
 
     // Generate PDF invoice
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50 });
-    
+
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
-    
+
     // Pipe PDF to response
     doc.pipe(res);
-    
+
     // Header
     doc.fontSize(20).text('SILAIMART', 50, 50);
     doc.fontSize(12).text('Divine Art to Your Doorstep', 50, 75);
     doc.text('Email: silaimartindia@gmail.com', 50, 90);
-    
+
     // Invoice title
     doc.fontSize(18).text('INVOICE', 400, 50);
     doc.fontSize(12).text(`Invoice #: ${order.orderNumber}`, 400, 75);
     doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 400, 105);
-    
+
     // Customer details
     doc.text('Bill To:', 50, 130);
     doc.text(order.shippingAddress.name, 50, 145);
@@ -516,70 +566,70 @@ exports.generateInvoice = async (req, res) => {
     doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state}`, 50, 175);
     doc.text(`${order.shippingAddress.pincode}, ${order.shippingAddress.country}`, 50, 190);
     doc.text(`Phone: ${order.shippingAddress.phone}`, 50, 205);
-    
+
     // Items table header
     const tableTop = 250;
     doc.text('Item', 50, tableTop);
     doc.text('Qty', 300, tableTop);
     doc.text('Price', 350, tableTop);
     doc.text('Total', 450, tableTop);
-    
+
     // Draw line
     doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-    
+
     // Items
     let yPosition = tableTop + 30;
     order.items.forEach((item) => {
       const price = item.discountPrice || item.price;
       const total = price * item.quantity;
-      
+
       doc.text(item.product.name, 50, yPosition);
       doc.text(item.quantity.toString(), 300, yPosition);
       doc.text(`Rs.${price.toLocaleString()}`, 350, yPosition);
       doc.text(`Rs.${total.toLocaleString()}`, 450, yPosition);
-      
+
       yPosition += 20;
     });
-    
+
     // Summary
     yPosition += 20;
     doc.moveTo(300, yPosition).lineTo(550, yPosition).stroke();
     yPosition += 15;
-    
+
     doc.text('Subtotal:', 350, yPosition);
     doc.text(`Rs.${order.subtotal.toLocaleString()}`, 450, yPosition);
     yPosition += 15;
-    
+
     if (order.discount > 0) {
       doc.text('Discount:', 350, yPosition);
       doc.text(`-Rs.${order.discount.toLocaleString()}`, 450, yPosition);
       yPosition += 15;
     }
-    
+
     doc.text('Shipping:', 350, yPosition);
     doc.text(order.shippingCost === 0 ? 'Free' : `Rs.${order.shippingCost}`, 450, yPosition);
     yPosition += 15;
-    
+
     doc.text('Tax (GST):', 350, yPosition);
     doc.text(`Rs.${order.tax.toLocaleString()}`, 450, yPosition);
     yPosition += 15;
-    
+
     doc.moveTo(300, yPosition).lineTo(550, yPosition).stroke();
     yPosition += 15;
-    
+
     doc.fontSize(14).text('Total:', 350, yPosition);
     doc.text(`Rs.${order.total.toLocaleString()}`, 450, yPosition);
-    
+
     // Footer
     doc.fontSize(10).text('Thank you for your business!', 50, 700);
     doc.text('For any queries, contact us at silaimartindia@gmail.com', 50, 715);
-    
+
     doc.end();
   } catch (error) {
     console.error('Error generating invoice:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to generate invoice' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate invoice'
     });
   }
 };
@@ -589,7 +639,7 @@ exports.cancelOrder = async (req, res) => {
   try {
     const { reason } = req.body;
     const filter = { _id: req.params.id };
-    
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
@@ -600,9 +650,9 @@ exports.cancelOrder = async (req, res) => {
     }
 
     if (!['pending', 'confirmed'].includes(order.orderStatus)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Order cannot be cancelled at this stage' 
+      return res.status(400).json({
+        success: false,
+        message: 'Order cannot be cancelled at this stage'
       });
     }
 
@@ -621,10 +671,10 @@ exports.cancelOrder = async (req, res) => {
 
     await sendOrderNotification(order.user, order._id, 'cancelled', order);
 
-    res.json({ 
-      success: true, 
-      message: 'Order cancelled successfully', 
-      order 
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      order
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -711,15 +761,15 @@ exports.getOrderStats = async (req, res) => {
 exports.trackOrder = async (req, res) => {
   try {
     const { orderNumber } = req.params;
-    
+
     const order = await Order.findOne({ orderNumber })
       .select('orderNumber orderStatus trackingNumber createdAt shippingAddress items')
       .populate('items.product', 'name images');
 
     if (!order) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Order not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
       });
     }
 

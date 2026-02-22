@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const bannerSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
-    trim: true
+    trim: true,
+    required: false
   },
   subtitle: String,
   description: String,
@@ -46,5 +46,11 @@ const bannerSchema = new mongoose.Schema({
 
 bannerSchema.index({ position: 1, order: 1, isActive: 1 });
 bannerSchema.index({ startDate: 1, endDate: 1 });
+
+console.log('--- Loading Banner Model ---');
+if (mongoose.models.Banner) {
+  console.log('--- Deleting existing Banner model ---');
+  delete mongoose.models.Banner;
+}
 
 module.exports = mongoose.model('Banner', bannerSchema);

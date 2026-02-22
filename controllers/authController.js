@@ -88,13 +88,17 @@ exports.login = async (req, res) => {
     );
 
     // If new device, send alert email
-    // If new device, send alert email
     // Only send to regular users, skip admins/superadmins to avoid spam
     if (!existingSession && user.role === 'user') {
       try {
         let location = 'Unknown Location';
-        if (deviceInfo.ip === '::1' || deviceInfo.ip === '127.0.0.1') {
-          location = 'Localhost';
+        const clientIp = deviceInfo.ip;
+
+        if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp.includes('::ffff:127.0.0.1')) {
+          location = 'Local Development (Sanctuary)';
+        } else {
+          // Attempting to provide a better placeholder for remote IPs
+          location = `Remote Connection (${clientIp})`;
         }
 
         await sendNewDeviceLoginAlert(user, {
