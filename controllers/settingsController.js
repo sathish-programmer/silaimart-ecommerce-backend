@@ -22,12 +22,15 @@ exports.getPublicSettings = async (req, res) => {
         tagline: settings.site?.tagline || 'Divine Art to Your Doorstep'
       },
       payment: {
-        razorpay: { enabled: settings.payment?.razorpay?.enabled || false },
+        razorpay: { 
+          enabled: settings.payment?.razorpay?.enabled || false,
+          keyId: settings.payment?.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || ''
+        },
         stripe: { enabled: settings.payment?.stripe?.enabled || false },
         cod: { 
-          enabled: settings.payment?.cod?.enabled || true,
-          minimumAmount: settings.payment?.cod?.minimumAmount || 0,
-          maximumAmount: settings.payment?.cod?.maximumAmount || 5000
+          enabled: settings.payment?.cod?.enabled === true,
+          minimumAmount: settings.payment?.cod?.minimumAmount ?? 0,
+          maximumAmount: settings.payment?.cod?.maximumAmount ?? 5000
         },
         qr: {
           enabled: settings.payment?.qr?.enabled || false,
@@ -46,9 +49,9 @@ exports.getPublicSettings = async (req, res) => {
         }
       },
       tax: {
-        enabled: settings.tax?.enabled || true,
-        rate: settings.tax?.rate || 18,
-        inclusive: settings.tax?.inclusive || false
+        enabled: settings.tax?.enabled ?? true,
+        rate: settings.tax?.rate ?? 18,
+        inclusive: settings.tax?.inclusive ?? false
       }
     };
     
@@ -66,14 +69,28 @@ exports.updateSettings = async (req, res) => {
     if (!settings) {
       settings = new Settings(req.body);
     } else {
-      // Deep merge the settings
-      Object.keys(req.body).forEach(key => {
-        if (typeof req.body[key] === 'object' && !Array.isArray(req.body[key])) {
-          settings[key] = { ...settings[key], ...req.body[key] };
-        } else {
-          settings[key] = req.body[key];
-        }
-      });
+      // Recursive deep merge helper
+      const deepMerge = (target, source) => {
+        Object.keys(source).forEach(key => {
+          if (
+            source[key] !== null &&
+            typeof source[key] === 'object' &&
+            !Array.isArray(source[key])
+          ) {
+            if (!target[key] || typeof target[key] !== 'object') {
+              target[key] = {};
+            }
+            deepMerge(target[key], source[key]);
+          } else {
+            target[key] = source[key];
+          }
+        });
+      };
+      deepMerge(settings, req.body);
+      settings.markModified('payment');
+      settings.markModified('shipping');
+      settings.markModified('tax');
+      settings.markModified('loyalty');
     }
     
     await settings.save();
