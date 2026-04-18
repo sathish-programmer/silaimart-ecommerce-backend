@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+require('dotenv').config({
+   path: `.env.${process.env.NODE_ENV || 'development'}`
+});
 const cookieParser = require("cookie-parser");
 
 const authRoutes = require('./routes/auth');
