@@ -39,9 +39,9 @@ exports.getPublicSettings = async (req, res) => {
         }
       },
       shipping: {
-        freeShippingThreshold: settings.shipping?.freeShippingThreshold || 1000,
-        standardShipping: settings.shipping?.standardShipping || 50,
-        expressShipping: settings.shipping?.expressShipping || 150,
+        freeShippingThreshold: settings.shipping?.freeShippingThreshold ?? 1000,
+        standardShipping: settings.shipping?.standardShipping ?? 50,
+        expressShipping: settings.shipping?.expressShipping ?? 150,
         internationalShipping: settings.shipping?.internationalShipping || false,
         estimatedDelivery: settings.shipping?.estimatedDelivery || {
           standard: '5-7 business days',

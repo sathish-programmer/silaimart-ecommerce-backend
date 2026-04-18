@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const { Order, Product, Coupon, User, Settings, LoyaltyTransaction } = require('../models');
 const { sendOrderNotification, sendPaymentNotification } = require('../services/notificationService');
 const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate, sendLoyaltyPointsNotification } = require('../services/emailService');
+const { generateInvoicePDF } = require('../utils/pdfGenerator');
 const crypto = require('crypto');
 
 exports.getAllOrders = async (req, res) => {
@@ -78,7 +80,10 @@ exports.getAdminOrders = async (req, res) => {
 
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
+    const isId = mongoose.Types.ObjectId.isValid(req.params.id);
+    const filter = isId ? { _id: req.params.id } : { orderNumber: req.params.id };
+
+    const order = await Order.findOne(filter)
       .populate('items.product', 'name images price')
       .populate('user', 'name email phone');
 
@@ -199,12 +204,14 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    const shippingCost = subtotal >= 1000 ? 0 : 50;
-    const totalDiscount = discount + loyaltyDiscount;
-
-    // Get tax rate from settings instead of hardcoding
+    // Get settings for dynamic shipping and tax
     const settings = await Settings.getSettings();
-    const taxRate = settings.tax?.rate || 18; // Default to 18% if not set
+    const freeShippingThreshold = settings.shipping?.freeShippingThreshold ?? 1000;
+    const standardShippingPrice = settings.shipping?.standardShipping ?? 50;
+    
+    const shippingCost = subtotal >= freeShippingThreshold ? 0 : standardShippingPrice;
+    const totalDiscount = discount + loyaltyDiscount;
+    const taxRate = settings.tax?.rate ?? 18; // Default to 18% if not set
     const tax = Math.round((subtotal - totalDiscount) * (taxRate / 100));
     const total = Math.max(0, subtotal - totalDiscount + shippingCost + tax);
 
@@ -325,7 +332,9 @@ exports.getOrders = async (req, res) => {
 
 exports.getOrder = async (req, res) => {
   try {
-    const filter = { _id: req.params.id };
+    const isId = mongoose.Types.ObjectId.isValid(req.params.id);
+    const filter = isId ? { _id: req.params.id } : { orderNumber: req.params.id };
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       filter.user = req.user.userId;
     }
@@ -426,49 +435,10 @@ exports.updateOrderStatus = async (req, res) => {
 
       // ── Generate and send Invoice upon delivery ──
       try {
-        console.log('Generating PDF invoice for automatic delivery...');
-        const PDFDocument = require('pdfkit');
-        const doc = new PDFDocument({ margin: 50 });
-        let chunks = [];
-
-        doc.on('data', chunk => chunks.push(chunk));
-        doc.on('end', async () => {
-          const pdfBuffer = Buffer.concat(chunks);
-          await require('../services/emailService').sendInvoiceEmail(updatedOrder, updatedOrder.user, pdfBuffer);
-          console.log('Invoice emailed successfully to', updatedOrder.user.email);
-        });
-
-        // Simplified Invoice Generation Logic (DRY could be improved by extracting this)
-        doc.fontSize(20).text('SILAIMART', 50, 50);
-        doc.fontSize(12).text('Divine Art to Your Doorstep', 50, 75);
-        doc.fontSize(18).text('INVOICE', 400, 50);
-        doc.fontSize(12).text(`Invoice #: ${updatedOrder.orderNumber}`, 400, 75);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 400, 105);
-
-        doc.text('Bill To:', 50, 130);
-        doc.text(updatedOrder.shippingAddress.name, 50, 145);
-        doc.text(updatedOrder.shippingAddress.street, 50, 160);
-        doc.text(`${updatedOrder.shippingAddress.city}, ${updatedOrder.shippingAddress.state}, ${updatedOrder.shippingAddress.pincode}`, 50, 175);
-
-        doc.moveTo(50, 210).lineTo(550, 210).stroke();
-        doc.text('Item', 50, 220);
-        doc.text('Qty', 300, 220);
-        doc.text('Total', 450, 220);
-
-        let y = 240;
-        updatedOrder.items.forEach(item => {
-          const price = item.discountPrice || item.price;
-          doc.text(item.product.name, 50, y);
-          doc.text(item.quantity.toString(), 300, y);
-          doc.text(`Rs.${(price * item.quantity).toLocaleString()}`, 450, y);
-          y += 20;
-        });
-
-        doc.moveTo(300, y + 10).lineTo(550, y + 10).stroke();
-        doc.text('Total Amount:', 350, y + 30);
-        doc.fontSize(14).text(`Rs.${updatedOrder.total.toLocaleString()}`, 450, y + 30);
-
-        doc.end();
+        console.log('Generating premium PDF invoice for automatic delivery...');
+        const pdfBuffer = await generateInvoicePDF(updatedOrder);
+        await require('../services/emailService').sendInvoiceEmail(updatedOrder, updatedOrder.user, pdfBuffer);
+        console.log('Premium Invoice emailed successfully to', updatedOrder.user.email);
       } catch (pdfError) {
         console.error('Failed to auto-generate or send invoice:', pdfError);
       }
@@ -538,93 +508,12 @@ exports.generateInvoice = async (req, res) => {
       });
     }
 
-    // Generate PDF invoice
-    const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ margin: 50 });
+    // Generate premium PDF invoice
+    const pdfBuffer = await generateInvoicePDF(order);
 
-    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
-
-    // Pipe PDF to response
-    doc.pipe(res);
-
-    // Header
-    doc.fontSize(20).text('SILAIMART', 50, 50);
-    doc.fontSize(12).text('Divine Art to Your Doorstep', 50, 75);
-    doc.text('Email: silaimartindia@gmail.com', 50, 90);
-
-    // Invoice title
-    doc.fontSize(18).text('INVOICE', 400, 50);
-    doc.fontSize(12).text(`Invoice #: ${order.orderNumber}`, 400, 75);
-    doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 400, 105);
-
-    // Customer details
-    doc.text('Bill To:', 50, 130);
-    doc.text(order.shippingAddress.name, 50, 145);
-    doc.text(order.shippingAddress.street, 50, 160);
-    doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state}`, 50, 175);
-    doc.text(`${order.shippingAddress.pincode}, ${order.shippingAddress.country}`, 50, 190);
-    doc.text(`Phone: ${order.shippingAddress.phone}`, 50, 205);
-
-    // Items table header
-    const tableTop = 250;
-    doc.text('Item', 50, tableTop);
-    doc.text('Qty', 300, tableTop);
-    doc.text('Price', 350, tableTop);
-    doc.text('Total', 450, tableTop);
-
-    // Draw line
-    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-
-    // Items
-    let yPosition = tableTop + 30;
-    order.items.forEach((item) => {
-      const price = item.discountPrice || item.price;
-      const total = price * item.quantity;
-
-      doc.text(item.product.name, 50, yPosition);
-      doc.text(item.quantity.toString(), 300, yPosition);
-      doc.text(`Rs.${price.toLocaleString()}`, 350, yPosition);
-      doc.text(`Rs.${total.toLocaleString()}`, 450, yPosition);
-
-      yPosition += 20;
-    });
-
-    // Summary
-    yPosition += 20;
-    doc.moveTo(300, yPosition).lineTo(550, yPosition).stroke();
-    yPosition += 15;
-
-    doc.text('Subtotal:', 350, yPosition);
-    doc.text(`Rs.${order.subtotal.toLocaleString()}`, 450, yPosition);
-    yPosition += 15;
-
-    if (order.discount > 0) {
-      doc.text('Discount:', 350, yPosition);
-      doc.text(`-Rs.${order.discount.toLocaleString()}`, 450, yPosition);
-      yPosition += 15;
-    }
-
-    doc.text('Shipping:', 350, yPosition);
-    doc.text(order.shippingCost === 0 ? 'Free' : `Rs.${order.shippingCost}`, 450, yPosition);
-    yPosition += 15;
-
-    doc.text('Tax (GST):', 350, yPosition);
-    doc.text(`Rs.${order.tax.toLocaleString()}`, 450, yPosition);
-    yPosition += 15;
-
-    doc.moveTo(300, yPosition).lineTo(550, yPosition).stroke();
-    yPosition += 15;
-
-    doc.fontSize(14).text('Total:', 350, yPosition);
-    doc.text(`Rs.${order.total.toLocaleString()}`, 450, yPosition);
-
-    // Footer
-    doc.fontSize(10).text('Thank you for your business!', 50, 700);
-    doc.text('For any queries, contact us at silaimartindia@gmail.com', 50, 715);
-
-    doc.end();
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('Error generating invoice:', error);
     res.status(500).json({

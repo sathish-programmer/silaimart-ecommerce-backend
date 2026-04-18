@@ -1,11 +1,20 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config({
-   path: `.env.${process.env.NODE_ENV || 'development'}`
-});
+
+// Load default .env first
+require('dotenv').config();
+
+// Load environment specific .env if it exists
+const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
+if (fs.existsSync(path.join(__dirname, envFile))) {
+    require('dotenv').config({ path: path.join(__dirname, envFile) });
+}
+
 const cookieParser = require("cookie-parser");
 
 const authRoutes = require('./routes/auth');
@@ -121,7 +130,7 @@ app.use((err, req, res, next) => {
 /* -------------------------------
    Server
 -------------------------------- */
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
    console.log(`SilaiMart API running on port ${PORT}`);
 });

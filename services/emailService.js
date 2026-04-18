@@ -61,8 +61,8 @@ const getBaseTemplate = (title, content, preheader = '') => `
           <p style="margin-bottom: 15px;">&copy; ${new Date().getFullYear()} SilaiMart India. All rights reserved.</p>
           <p>You're receiving this because you're a valued member of our sanctuary.</p>
           <div style="margin-top: 20px;">
-            <a href="#" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Privacy Policy</a>
-            <a href="#" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Support</a>
+            <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/policy/privacy" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Privacy Policy</a>
+            <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/support" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Support</a>
           </div>
         </td>
       </tr>
@@ -360,7 +360,7 @@ const sendInvoiceEmail = async (order, user, pdfBuffer) => {
 
     <p style="font-size: 14px; text-align: center;">Would you mind sharing your experience with our community?</p>
     <div style="text-align: center;">
-      <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/profile" class="button">Write a Review</a>
+      <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/profile?tab=orders&reviewOrderId=${order.orderNumber}" class="button">Write a Review</a>
     </div>
   `;
 

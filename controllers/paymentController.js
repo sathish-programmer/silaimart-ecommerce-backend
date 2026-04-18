@@ -49,8 +49,8 @@ exports.getPaymentMethods = async (req, res) => {
       },
       cod: {
         enabled: settings?.payment?.cod?.enabled || true,
-        minimumAmount: settings?.payment?.cod?.minimumAmount || 0,
-        maximumAmount: settings?.payment?.cod?.maximumAmount || 5000
+        minimumAmount: settings?.payment?.cod?.minimumAmount ?? 0,
+        maximumAmount: settings?.payment?.cod?.maximumAmount ?? 5000
       },
       qr: {
         enabled: settings?.payment?.qr?.enabled || false,
@@ -147,7 +147,7 @@ exports.createRazorpayOrder = async (req, res) => {
       }
 
       const settings = await Settings.getSettings();
-      const shippingCost = subtotal >= (settings?.shipping?.freeShippingThreshold || 1000) ? 0 : (settings?.shipping?.standardShipping || 50);
+      const shippingCost = subtotal >= (settings?.shipping?.freeShippingThreshold ?? 1000) ? 0 : (settings?.shipping?.standardShipping ?? 50);
       const taxRate = settings?.tax?.rate || 18;
       const taxEnabled = settings?.tax?.enabled !== false;
       const tax = taxEnabled ? Math.round((subtotal - discount - loyaltyDiscount) * (taxRate / 100)) : 0;
@@ -245,7 +245,7 @@ exports.verifyRazorpayPayment = async (req, res) => {
     }
 
     const appSettings = await Settings.findOne();
-    const shippingCost = subtotal >= (appSettings?.shipping?.freeShippingThreshold || 1000) ? 0 : (appSettings?.shipping?.standardShipping || 50);
+    const shippingCost = subtotal >= (appSettings?.shipping?.freeShippingThreshold ?? 1000) ? 0 : (appSettings?.shipping?.standardShipping ?? 50);
     const taxAmount = Math.round((subtotal - discount - loyaltyDiscount) * ((appSettings?.tax?.rate || 18) / 100));
     const total = Math.max(0, subtotal - discount - loyaltyDiscount + shippingCost + taxAmount);
 
