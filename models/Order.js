@@ -91,7 +91,12 @@ const orderSchema = new mongoose.Schema({
   estimatedDeliveryDate: Date,
   actualDeliveryDate: Date,
   deliveryNotes: String,
-  notes: String
+  notes: String,
+  refundId: String,
+  refundStatus: String,
+  refundAmount: Number,
+  refundAt: Date,
+  refundReason: String
 }, {
   timestamps: true
 });

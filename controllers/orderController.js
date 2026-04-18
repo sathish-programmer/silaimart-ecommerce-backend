@@ -644,19 +644,71 @@ exports.cancelOrder = async (req, res) => {
       filter.user = req.user.userId;
     }
 
-    const order = await Order.findOne(filter);
+    const order = await Order.findOne(filter).populate('user');
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    if (!['pending', 'confirmed'].includes(order.orderStatus)) {
+    if (order.orderStatus === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    }
+
+    if (!['pending', 'confirmed', 'processing'].includes(order.orderStatus)) {
       return res.status(400).json({
         success: false,
-        message: 'Order cannot be cancelled at this stage'
+        message: `Order cannot be cancelled at stage: ${order.orderStatus}`
       });
     }
 
-    // Restore product stock
+    // ── 1. Handle Razorpay Refund ──
+    let refundInfo = null;
+    if (order.paymentStatus === 'paid' && order.paymentMethod === 'razorpay' && order.paymentId) {
+      try {
+        const { refundRazorpayPayment } = require('./paymentController');
+        refundInfo = await refundRazorpayPayment(order, reason);
+        
+        order.paymentStatus = 'refunded';
+        order.refundId = refundInfo.refundId;
+        order.refundStatus = refundInfo.status;
+        order.refundAmount = refundInfo.amount;
+        order.refundAt = refundInfo.at;
+        order.refundReason = reason;
+      } catch (refundError) {
+        console.error('❌ Refund failed during cancellation:', refundError);
+        return res.status(500).json({ 
+          success: false, 
+          message: `Refund failed: ${refundError.message}. Order not cancelled.` 
+        });
+      }
+    }
+
+    // ── 2. Restore loyalty points if used ──
+    if (order.loyaltyPointsUsed > 0) {
+      console.log(`💎 Restoring ${order.loyaltyPointsUsed} points for order ${order.orderNumber}`);
+      await User.findByIdAndUpdate(order.user._id, {
+        $inc: { loyaltyPoints: order.loyaltyPointsUsed }
+      });
+
+      const updatedUser = await User.findById(order.user._id);
+      await LoyaltyTransaction.create({
+        user: order.user._id,
+        type: 'earned', // Labelled as reward/refund
+        points: order.loyaltyPointsUsed,
+        description: `Refunded points for cancelled order #${order.orderNumber}`,
+        orderId: order._id,
+        balanceAfter: updatedUser.loyaltyPoints,
+        metadata: { orderNumber: order.orderNumber, action: 'cancel_refund' }
+      });
+      
+      try {
+        await sendLoyaltyPointsNotification(updatedUser, order.loyaltyPointsUsed, 'earned', {
+          orderNumber: order.orderNumber,
+          total: order.total
+        });
+      } catch (e) { console.error('Loyalty email failed:', e); }
+    }
+
+    // ── 3. Restore product stock ──
     for (const item of order.items) {
       await Product.findByIdAndUpdate(
         item.product,
@@ -664,19 +716,35 @@ exports.cancelOrder = async (req, res) => {
       );
     }
 
+    // ── 4. Finalize Order Status ──
     order.orderStatus = 'cancelled';
     order.cancelReason = reason;
     order.cancelledAt = new Date();
     await order.save();
 
-    await sendOrderNotification(order.user, order._id, 'cancelled', order);
+    // ── 5. Notifications ──
+    try {
+      await sendOrderNotification(order.user._id, order._id, 'cancelled', order);
+      await sendOrderStatusUpdate(order, order.user, 'processing', 'cancelled');
+      
+      if (refundInfo) {
+        await sendPaymentNotification(order.user._id, 'refund', {
+          orderId: order._id,
+          amount: order.total
+        });
+      }
+    } catch (notifError) {
+      console.error('⚠️ Post-cancel notifications failed:', notifError);
+    }
 
     res.json({
       success: true,
-      message: 'Order cancelled successfully',
-      order
+      message: refundInfo ? 'Order cancelled and refund initiated successfully' : 'Order cancelled successfully',
+      order,
+      refunded: !!refundInfo
     });
   } catch (error) {
+    console.error('❌ Cancel order error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

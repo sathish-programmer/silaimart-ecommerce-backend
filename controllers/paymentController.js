@@ -380,3 +380,50 @@ exports.verifyQRPayment = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/* ── Refund Razorpay Payment ── */
+exports.refundRazorpayPayment = async (order, reason = 'Order cancelled by admin') => {
+  console.log(`📡 [DEBUG] Initiating refund for Order: ${order.orderNumber}, Payment: ${order.paymentId}`);
+  
+  try {
+    if (!order.paymentId) {
+      throw new Error('No payment ID found for this order.');
+    }
+
+    const { instance: razorpayInstance } = await getRazorpayInstance();
+    
+    // Razorpay amount is in paise (₹1 = 100 paise)
+    const refundData = {
+      amount: Math.round(order.total * 100),
+      notes: {
+        orderNumber: order.orderNumber,
+        reason: reason,
+        adminAction: 'true'
+      }
+    };
+
+    console.log('📡 [DEBUG] Requesting Razorpay Refund:', refundData);
+    const refund = await razorpayInstance.payments.refund(order.paymentId, refundData);
+    console.log('✅ [DEBUG] Razorpay Refund Successful:', refund.id);
+
+    return {
+      success: true,
+      refundId: refund.id,
+      status: refund.status,
+      amount: order.total,
+      at: new Date()
+    };
+  } catch (error) {
+    console.error('❌ [DEBUG] Razorpay Refund Error Details:', {
+      message: error.message,
+      description: error.description,
+      code: error.code,
+      metadata: error.metadata,
+      reason: error.reason
+    });
+    
+    // Throw a more descriptive error message if available
+    const errorMessage = error.description || error.message || 'Failed to process refund through Razorpay';
+    throw new Error(errorMessage);
+  }
+};

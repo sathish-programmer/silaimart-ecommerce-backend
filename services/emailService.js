@@ -116,7 +116,8 @@ const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
       processing: 'Your order is now being processed.',
       shipped: `Your order has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
       delivered: 'Your order has been delivered successfully!',
-      cancelled: 'Your order has been cancelled.',
+      cancelled: 'Your order has been cancelled. Any payment made will be refunded within 3-5 business days.',
+      refunded: 'Your refund has been processed successfully. It should reflect in your account within 3-5 business days.',
       unpaid: 'Your order payment is pending. Please complete the payment to confirm your order.'
     };
 
@@ -126,6 +127,7 @@ const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
       shipped: 'On The Way',
       delivered: 'Sacred Delivery',
       cancelled: 'Order Cancelled',
+      refunded: 'Refund Processed',
       unpaid: 'Payment Pending'
     };
 

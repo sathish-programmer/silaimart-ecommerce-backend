@@ -14,7 +14,8 @@ const {
   getAllOrders,
   getAdminOrders,
   updateOrderStatus,
-  getOrderById
+  getOrderById,
+  cancelOrder
 } = require('../controllers/orderController');
 
 const { 

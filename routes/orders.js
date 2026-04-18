@@ -1,5 +1,13 @@
 const express = require('express');
-const { createOrder, getOrders, getOrder, updateOrderStatus, generateInvoice, trackOrder } = require('../controllers/orderController');
+const { 
+  createOrder, 
+  getOrders, 
+  getOrder, 
+  updateOrderStatus, 
+  generateInvoice, 
+  trackOrder,
+  cancelOrder
+} = require('../controllers/orderController');
 const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -15,5 +23,6 @@ router.get('/:id/invoice', auth, generateInvoice);
 
 // Admin routes
 router.put('/:id/status', adminAuth, updateOrderStatus);
+router.post('/:id/cancel', adminAuth, cancelOrder);
 
 module.exports = router;
