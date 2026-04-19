@@ -12,7 +12,7 @@ require('dotenv').config();
 // Load environment specific .env if it exists
 const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
 if (fs.existsSync(path.join(__dirname, envFile))) {
-    require('dotenv').config({ path: path.join(__dirname, envFile) });
+   require('dotenv').config({ path: path.join(__dirname, envFile) });
 }
 
 const cookieParser = require("cookie-parser");
@@ -130,7 +130,7 @@ app.use((err, req, res, next) => {
 /* -------------------------------
    Server
 -------------------------------- */
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
    console.log(`SilaiMart API running on port ${PORT}`);
 });
