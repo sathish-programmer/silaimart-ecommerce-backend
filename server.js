@@ -7,8 +7,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 // Load default .env first
-require('dotenv').config();
-
+require('dotenv').config({
+   path: `.env.${process.env.NODE_ENV || 'development'}`
+});
 // Load environment specific .env if it exists
 const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
 if (fs.existsSync(path.join(__dirname, envFile))) {
