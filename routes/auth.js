@@ -2,6 +2,17 @@ const express = require('express');
 const { register, login, logout, getProfile, updateProfile, getAllUsers, getUserById, forgotPassword, resetPassword, redeemLoyaltyPoints, addAddress, updateAddress, deleteAddress, deleteAccount, getSessions, terminateSession, submitCustomOrderRequest, getCustomOrderRequests } = require('../controllers/authController');
 const { auth, admin } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const { apiLimiter, strictLimiter } = require('../middleware/rateLimit');
+
+// Dedicated login limiter: lenient enough for dev/normal use, strict enough to block brute force
+const loginLimiter = require('express-rate-limit')({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // 20 attempts per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 429, message: 'Too many login attempts. Please try again in 15 minutes.' }
+});
+
 
 const router = express.Router();
 
@@ -14,14 +25,14 @@ const handleValidation = (req, res, next) => {
 };
 
 // Register
-router.post('/register', [
+router.post('/register', strictLimiter, [
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
   body('email').isEmail().withMessage('Please provide a valid email'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], handleValidation, register);
 
-// Login
-router.post('/login', [
+// Login — uses dedicated limiter (not the shared 50/hr strict limiter)
+router.post('/login', loginLimiter, [
   body('email').isEmail().withMessage('Please provide a valid email'),
   body('password').exists().withMessage('Password is required')
 ], handleValidation, login);
@@ -39,12 +50,12 @@ router.get('/users', auth, admin, getAllUsers);
 router.get('/users/:id', auth, admin, getUserById);
 
 // Forgot password
-router.post('/forgot-password', [
+router.post('/forgot-password', strictLimiter, [
   body('email').isEmail().withMessage('Please provide a valid email'),
 ], handleValidation, forgotPassword);
 
 // Reset password
-router.post('/reset-password/:token', [
+router.post('/reset-password/:token', strictLimiter, [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('confirmPassword').custom((value, { req }) => {
     if (value !== req.body.password) {

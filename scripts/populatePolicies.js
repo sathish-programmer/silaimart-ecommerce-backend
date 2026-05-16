@@ -15,7 +15,7 @@ const defaultPolicies = [
       
       <h3>2. Products and Services</h3>
       <ul>
-        <li>All sculptures and products are handcrafted and may have slight variations</li>
+        <li>All products are high-quality and may have slight variations due to their nature</li>
         <li>Product images are for reference only and actual products may vary slightly</li>
         <li>We reserve the right to modify or discontinue products without notice</li>
       </ul>
@@ -23,7 +23,7 @@ const defaultPolicies = [
       <h3>3. Pricing and Payment</h3>
       <ul>
         <li>All prices are in Indian Rupees (INR) and include applicable taxes</li>
-        <li>We accept various payment methods including cards, UPI, and cash on delivery</li>
+        <li>We accept various payment methods including cards, UPI, and wallets</li>
         <li>Prices are subject to change without prior notice</li>
       </ul>
       
@@ -49,7 +49,7 @@ const defaultPolicies = [
       <ul>
         <li><strong>7 days</strong> from delivery for returns</li>
         <li><strong>3 days</strong> from delivery for exchanges</li>
-        <li>Items must be in original condition</li>
+        <li>Items must be in original condition with tags</li>
       </ul>
       
       <h3>Eligible Items</h3>
@@ -98,7 +98,7 @@ const defaultPolicies = [
       <h3>Cancellation Charges</h3>
       <ul>
         <li><strong>Free:</strong> Before processing</li>
-        <li><strong>₹50 fee:</strong> If being prepared</li>
+        <li><strong>Processing fee:</strong> If being prepared</li>
         <li><strong>No cancellation:</strong> Once shipped</li>
       </ul>
       
@@ -161,8 +161,8 @@ const defaultPolicies = [
       
       <h3>Shipping Options</h3>
       <ul>
-        <li><strong>Standard:</strong> 5-7 days - ₹50</li>
-        <li><strong>Express:</strong> 2-3 days - ₹150</li>
+        <li><strong>Standard:</strong> 5-7 days</li>
+        <li><strong>Express:</strong> 2-3 days</li>
         <li><strong>Free Shipping:</strong> Orders above ₹1,000</li>
       </ul>
       
@@ -175,15 +175,15 @@ const defaultPolicies = [
       
       <h3>Order Processing</h3>
       <ul>
-        <li>Processing: 1-2 business days</li>
-        <li>Custom orders: 7-14 days</li>
+        <li>Standard products: 1-2 business days</li>
+        <li>Customized items: 7-14 days</li>
       </ul>
       
       <h3>Packaging</h3>
       <ul>
-        <li>Eco-friendly materials</li>
-        <li>Extra protection for sculptures</li>
-        <li>Bubble wrap and foam padding</li>
+        <li>Eco-friendly and secure materials</li>
+        <li>Extra protection for fragile items</li>
+        <li>Comprehensive quality checks before dispatch</li>
       </ul>
       
       <h3>Tracking</h3>

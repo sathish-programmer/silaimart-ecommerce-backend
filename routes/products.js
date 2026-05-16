@@ -5,7 +5,8 @@ const {
   createProduct, 
   updateProduct, 
   deleteProduct, 
-  getRelatedProducts 
+  getRelatedProducts,
+  getRecommendations
 } = require('../controllers/productController');
 const { auth, adminAuth } = require('../middleware/auth');
 
@@ -15,6 +16,7 @@ const router = express.Router();
 router.get('/', getProducts);
 router.get('/:id', getProduct);
 router.get('/:id/related', getRelatedProducts);
+router.get('/recommendations', getRecommendations);
 
 // Admin routes
 router.post('/', adminAuth, createProduct);

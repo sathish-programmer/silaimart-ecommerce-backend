@@ -103,47 +103,48 @@ async function generateBotResponse(userMessage, userId) {
     }
   }
 
-  // Greeting responses (Varied)
+  // Generic Greetings
   if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
     const greetings = [
-      `Namaste${userName ? ' ' + userName : ''}! Welcome to SilaiMart. How can I assist you in finding the perfect divine sculpture today? 🙏`,
-      `Hello${userName ? ' ' + userName : ''}! It's a pleasure to have you here. Looking for a specific deity or material? ✨`,
-      `Hi there! Hope you're having a blessed day. How can I help you explore our sacred collection? 🕉️`
+      `Hello${userName ? ' ' + userName : ''}! Welcome to SilaiMart. How can I help you find what you're looking for today?`,
+      `Hi there! Welcome to SilaiMart. I'm here to assist you with your shopping experience.`,
+      `Namaste! Hope you're having a great day. How can I help you explore our collection?`
     ];
     return {
       message: greetings[Math.floor(Math.random() * greetings.length)],
       type: 'action',
       data: {
         quickReplies: [
-          { text: 'Browse Sculptures', action: 'Show me your sculptures' },
-          { text: 'Popular Items', action: 'What are your popular sculptures?' },
-          { text: 'Need Help', action: 'I need help' }
+          { text: 'Browse Products', action: 'Show me your products' },
+          { text: 'New Arrivals', action: 'What are your latest items?' },
+          { text: 'Best Sellers', action: 'What are your most popular products?' },
+          { text: 'Check Categories', action: 'Show me all categories' }
         ]
       }
     };
   }
 
   // Enhanced product search
-  const productKeywords = ['ganesha', 'vinayagar', 'shiva', 'vishnu', 'krishna', 'hanuman', 'durga', 'lakshmi', 'saraswati', 'buddha', 'sculpture', 'statue', 'murti', 'idol', 'bronze', 'stone', 'marble'];
+  const productKeywords = ['product', 'item', 'buy', 'shop', 'order', 'decor', 'gift', 'pooja', 'sculpture', 'statue', 'furniture', 'painting', 'handicraft', 'clothing', 'home', 'accessories', 'art', 'jewelry'];
   const hasProductKeyword = productKeywords.some(keyword => message.includes(keyword));
 
   if (hasProductKeyword || message.includes('show') || message.includes('find') || message.includes('search')) {
     const products = await searchProducts(message);
     if (products.length > 0) {
       const responses = [
-        `I've found some exquisite pieces for you${userName ? ', ' + userName : ''}. Here are the top matches from our collection:`,
-        `Based on your request, I recommend these divine sculptures:`,
-        `Here are some sacred art pieces that might be what you're looking for:`
+        `I've found some items for you${userName ? ', ' + userName : ''}. Here are the top matches from our collection:`,
+        `Based on your request, I recommend these products:`,
+        `Here are some items that might be what you're looking for:`
       ];
       return {
         message: responses[Math.floor(Math.random() * responses.length)],
         type: 'product',
         data: {
-          products: products.slice(0, 6), // Return more products
+          products: products.slice(0, 6),
           suggestions: [
-            'Can I see more details for one of these?',
-            'What materials are these made from?',
-            'Do you have any smaller sizes?'
+            'Tell me more about a product',
+            'Do you have other categories?',
+            'What are your best sellers?'
           ]
         }
       };
@@ -154,16 +155,16 @@ async function generateBotResponse(userMessage, userId) {
         data: {
           products: await getPopularProducts(),
           suggestions: [
-            'Search for Ganesha',
-            'Search for Shiva',
-            'Show marble sculptures'
+            'Browse Home Decor',
+            'Show Best Sellers',
+            'Check New Arrivals'
           ]
         }
       };
     }
   }
 
-  // Detailed Help & Support
+  // Help & Support
   if (message.includes('help') || message.includes('support') || message.includes('assist') || message.includes('menu')) {
     return {
       message: `I'm here to ensure your experience with SilaiMart is seamless${userName ? ', ' + userName : ''}. What can I guide you with today?`,
@@ -171,55 +172,16 @@ async function generateBotResponse(userMessage, userId) {
       data: {
         suggestions: [
           '📦 Track an existing order',
-          '🚚 Shipping & Delivery timelines',
-          '🔄 Returns & Refund policy',
-          '💎 Material & Craftsmanship details',
-          '📞 Talk to our artisan support'
+          '🚚 Shipping & Delivery info',
+          '🔄 Returns & Refunds',
+          '💳 Payment issues',
+          '📞 Contact Customer Care'
         ],
         quickReplies: [
           { text: 'Track Order', action: 'Track my order' },
           { text: 'Returns Info', action: 'What is your return policy?' },
           { text: 'Shipping Details', action: 'Shipping information' },
           { text: 'Contact Us', action: 'redirect:/support' }
-        ]
-      }
-    };
-  }
-
-  // Material and craftsmanship
-  if (message.includes('material') || message.includes('stone') || message.includes('marble') || message.includes('brass') || message.includes('bronze')) {
-    return {
-      message: 'At SilaiMart, we pride ourselves on using sacred materials for our art:',
-      type: 'action',
-      data: {
-        steps: [
-          "**Makrana Marble**: Pure white marble, renowned for its spiritual radiance.",
-          "**Panchaloha Bronze**: A traditional five-metal alloy used in Chola-style casting.",
-          "**Black Granite**: Durable, high-detail stone from Southern India.",
-          "**Natural Sandstone**: Echoing the textures of India's ancient cave temples."
-        ],
-        quickReplies: [
-          { text: 'Show Marble Art', action: 'Show marble sculptures' },
-          { text: 'Bronze Collection', action: 'Show bronze sculptures' }
-        ]
-      }
-    };
-  }
-
-  // Pricing & Deals
-  if (message.includes('price') || message.includes('cost') || message.includes('₹') || message.includes('offer') || message.includes('discount')) {
-    return {
-      message: 'We offer divine art across various price ranges to suit every home:',
-      type: 'action',
-      data: {
-        priceRanges: [
-          { range: '₹500 - ₹2,000', description: 'Small decorative and gift items' },
-          { range: '₹2,000 - ₹10,000', description: 'Medium-sized household shrines' },
-          { range: '₹10,000+', description: 'Premium large-scale artisan masterpieces' }
-        ],
-        quickReplies: [
-          { text: 'Budget Finds', action: 'Show products under 2000' },
-          { text: 'Current Offers', action: 'Show current offers' }
         ]
       }
     };
@@ -235,7 +197,7 @@ async function generateBotResponse(userMessage, userId) {
         data: {
           steps: [
             `Status: ${freshLastOrder.orderStatus}`,
-            `Estimated Delivery: ${freshLastOrder.estimatedDeliveryDate ? new Date(freshLastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Confirmed soon'}`,
+            `Estimated Delivery: ${freshLastOrder.estimatedDeliveryDate ? new Date(freshLastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Will be updated soon'}`,
             `Items: ${freshLastOrder.items.length} item(s)`
           ],
           quickReplies: [
@@ -247,22 +209,22 @@ async function generateBotResponse(userMessage, userId) {
     }
 
     return {
-      message: 'We deliver sacred art safely to your doorstep. What would you like to know?',
+      message: 'We deliver products safely to your doorstep. What would you like to know?',
       type: 'action',
       data: {
         quickReplies: [
           { text: 'Shipping Rates', action: 'What is shipping cost?' },
-          { text: 'I have an Order ID', action: 'Track order sm' },
+          { text: 'I have an Order ID', action: 'Track order' },
           { text: 'Delivery Times', action: 'How long does delivery take?' }
         ]
       }
     };
   }
 
-  // Default Fallback (Varied)
+  // Default Fallback
   const fallbacks = [
-    `I'm not quite sure I follow, but I'd love to help you find something special${userName ? ', ' + userName : ''}. Try asking about a specific deity like 'Ganesha' or 'Shiva'.`,
-    `I'm still learning the way of the artist! Could you rephrase that? Or would you like to see our most popular sculptures?`,
+    `I'm not quite sure I follow, but I'd love to help you find something special${userName ? ', ' + userName : ''}. Try asking about our latest products!`,
+    `I'm still learning! Could you rephrase that? Or would you like to see our most popular items?`,
     `That's a great question! While I might not have a specific answer for that yet, I can certainly help you track an order or browse our collection.`
   ];
   return {
@@ -270,9 +232,9 @@ async function generateBotResponse(userMessage, userId) {
     type: 'action',
     data: {
       suggestions: [
-        '🕉️ Browse divine statues',
+        '🛍️ Browse collection',
         '📦 Check order status',
-        '💎 Learn about materials',
+        '✨ View new arrivals',
         '📞 Talk to support'
       ]
     }
@@ -283,35 +245,15 @@ async function generateBotResponse(userMessage, userId) {
 async function searchProducts(message) {
   const keywords = extractKeywords(message);
 
-  // Enhanced search with deity names and product types
-  const deityMap = {
-    'ganesha': ['ganesha', 'vinayagar', 'ganapati'],
-    'shiva': ['shiva', 'mahadev', 'nataraja'],
-    'krishna': ['krishna', 'kanha', 'govind'],
-    'hanuman': ['hanuman', 'bajrang'],
-    'buddha': ['buddha', 'gautam'],
-    'durga': ['durga', 'devi'],
-    'lakshmi': ['lakshmi', 'laxmi'],
-    'saraswati': ['saraswati', 'saraswathi']
-  };
-
-  let searchTerms = [...keywords];
-
-  // Add related deity terms
-  Object.entries(deityMap).forEach(([deity, variants]) => {
-    if (variants.some(variant => message.includes(variant))) {
-      searchTerms.push(deity, ...variants);
-    }
-  });
-
   const query = {
     $and: [
       {
         $or: [
-          { name: { $regex: searchTerms.join('|'), $options: 'i' } },
-          { description: { $regex: searchTerms.join('|'), $options: 'i' } },
-          { tags: { $in: searchTerms } },
-          { 'sculptureDetails.deity': { $regex: searchTerms.join('|'), $options: 'i' } }
+          { name: { $regex: keywords.join('|'), $options: 'i' } },
+          { description: { $regex: keywords.join('|'), $options: 'i' } },
+          { tags: { $in: keywords } },
+          { 'specifications.type': { $regex: keywords.join('|'), $options: 'i' } },
+          { 'specifications.collection': { $regex: keywords.join('|'), $options: 'i' } }
         ]
       },
       { isActive: true }
@@ -321,7 +263,7 @@ async function searchProducts(message) {
   return await Product.find(query)
     .populate('category', 'name')
     .limit(8)
-    .select('name price discountPrice images category sculptureDetails');
+    .select('name price discountPrice images category specifications sculptureDetails');
 }
 
 // Get popular products when no specific search

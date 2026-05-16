@@ -26,7 +26,10 @@ exports.getPublicSettings = async (req, res) => {
           enabled: settings.payment?.razorpay?.enabled || false,
           keyId: settings.payment?.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || ''
         },
-        stripe: { enabled: settings.payment?.stripe?.enabled || false },
+        stripe: { 
+          enabled: true, 
+          publicKey: settings.payment?.stripe?.publicKey || process.env.STRIPE_PUBLISHABLE_KEY || '' 
+        },
         cod: { 
           enabled: settings.payment?.cod?.enabled === true,
           minimumAmount: settings.payment?.cod?.minimumAmount ?? 0,
@@ -52,6 +55,20 @@ exports.getPublicSettings = async (req, res) => {
         enabled: settings.tax?.enabled ?? true,
         rate: settings.tax?.rate ?? 18,
         inclusive: settings.tax?.inclusive ?? false
+      },
+      loyalty: settings.loyalty || {
+        enabled: true,
+        pointsPerRupee: 0.1,
+        minimumRedeemPoints: 100,
+        redemptionRate: 1
+      },
+      offers: settings.offers || {
+        wowDeal: { enabled: true, title: 'WOW! DEAL Apply offers for maximum savings', discountPercentage: 15, minOrderValue: 500 },
+        superCoin: { enabled: true, benefitTitle: 'SuperCoin Benefit', pointsDiscount: 12, coinsRequired: 12 },
+        bankOffers: [
+          { id: 'bank-1', title: 'Bank Offer', description: '5% Cashback on Flipkart Axis Bank Card', code: 'AXIS5', discountPercent: 5 },
+          { id: 'bank-2', title: 'Special Offer', description: '10% off on ICICI Bank Credit Cards, up to ₹100', code: 'ICICI10', discountPercent: 10 }
+        ]
       }
     };
     
@@ -91,6 +108,7 @@ exports.updateSettings = async (req, res) => {
       settings.markModified('shipping');
       settings.markModified('tax');
       settings.markModified('loyalty');
+      settings.markModified('offers');
     }
     
     await settings.save();

@@ -37,7 +37,6 @@ const loyaltyTransactionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-loyaltyTransactionSchema.index({ user: 1, orderId: 1, type: 1 }, { unique: true });
 loyaltyTransactionSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('LoyaltyTransaction', loyaltyTransactionSchema);

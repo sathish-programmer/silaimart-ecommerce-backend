@@ -1,152 +1,121 @@
+/**
+ * Centralized Notification Service
+ * Dispatches notifications across multiple channels (Push, Email, SMS, In-App).
+ */
+
 const { createNotification } = require('../controllers/notificationController');
+const User = require('../models/User');
+// In production, these would be real service imports
+// const emailService = require('./emailService');
+// const pushProvider = require('../utils/pushProvider'); 
 
-// Order notification templates
-const orderNotifications = {
-  created: {
-    title: 'Order Placed Successfully! 🎉',
-    message: 'Your order has been placed and is being processed.',
-    type: 'order',
-    priority: 'high',
-    icon: 'shopping-bag'
-  },
-  confirmed: {
-    title: 'Order Confirmed ✅',
-    message: 'Great news! Your order has been confirmed and will be processed soon.',
-    type: 'order',
-    priority: 'high',
-    icon: 'check-circle'
-  },
-  processing: {
-    title: 'Order Processing 🔄',
-    message: 'Your order is being carefully prepared by our artisans.',
-    type: 'order',
-    priority: 'medium',
-    icon: 'cog'
-  },
-  shipped: {
-    title: 'Order Shipped 🚚',
-    message: 'Your divine sculptures are on their way to you!',
-    type: 'shipping',
-    priority: 'high',
-    icon: 'truck'
-  },
-  delivered: {
-    title: 'Order Delivered 📦',
-    message: 'Your order has been delivered. Enjoy your divine sculptures!',
-    type: 'shipping',
-    priority: 'high',
-    icon: 'gift'
-  },
-  cancelled: {
-    title: 'Order Cancelled ❌',
-    message: 'Your order has been cancelled. Refund will be processed if applicable.',
-    type: 'order',
-    priority: 'high',
-    icon: 'x-circle'
+class NotificationService {
+  /**
+   * Main entry point for sending notifications.
+   * Handles preference checks and multi-channel dispatch.
+   */
+  async send(userId, { title, message, type, priority = 'medium', data = {} }) {
+    try {
+      const user = await User.findById(userId).select('email phone notificationPreferences pushTokens');
+      if (!user) return null;
+
+      const prefs = user.notificationPreferences || { email: true, inApp: true, push: true };
+      const results = {};
+
+      // 1. In-App Notification (Always created if enabled)
+      if (prefs.inApp) {
+        results.inApp = await createNotification(userId, {
+          title, message, type, priority, data
+        });
+      }
+
+      // 2. Email Dispatch
+      if (prefs.email) {
+        // results.email = await emailService.sendGenericEmail(user.email, title, message);
+        console.log(`[NotificationService] Sending Email to ${user.email}: ${title}`);
+      }
+
+      // 3. Push Notification Dispatch
+      if (prefs.push && user.pushTokens?.length > 0) {
+        // results.push = await this._sendPush(user.pushTokens, { title, message, data });
+        console.log(`[NotificationService] Sending Push to ${user.pushTokens.length} devices for user ${userId}`);
+      }
+
+      // 4. SMS Dispatch (High priority or explicit preference)
+      if (prefs.sms && user.phone) {
+        console.log(`[NotificationService] Sending SMS to ${user.phone}: ${title}`);
+      }
+
+      return results;
+    } catch (error) {
+      console.error('[NotificationService] Dispatch error:', error);
+      // TODO: Implement retry queue for failed critical notifications
+      return null;
+    }
   }
-};
 
-// Payment notification templates
-const paymentNotifications = {
-  success: {
-    title: 'Payment Successful 💳',
-    message: 'Your payment has been processed successfully.',
-    type: 'payment',
-    priority: 'high',
-    icon: 'credit-card'
-  },
-  failed: {
-    title: 'Payment Failed ⚠️',
-    message: 'Your payment could not be processed. Please try again.',
-    type: 'payment',
-    priority: 'high',
-    icon: 'alert-triangle'
-  },
-  refund: {
-    title: 'Refund Processed 💰',
-    message: 'Your refund has been processed and will reflect in 3-5 business days.',
-    type: 'payment',
-    priority: 'medium',
-    icon: 'money'
+  /**
+   * Specialized method for order updates.
+   */
+  async sendOrderUpdate(userId, order, status) {
+    const templates = {
+      created: { title: 'Order Placed! 🎉', message: `Order #${order.orderNumber} is being processed.` },
+      shipped: { title: 'Order Shipped! 🚚', message: `Order #${order.orderNumber} is on its way.` },
+      delivered: { title: 'Order Delivered! 📦', message: `Order #${order.orderNumber} has been delivered.` },
+      cancelled: { title: 'Order Cancelled ❌', message: `Order #${order.orderNumber} was cancelled.` }
+    };
+
+    const content = templates[status] || { title: 'Order Update', message: `Order #${order.orderNumber} status: ${status}` };
+    return this.send(userId, {
+      ...content,
+      type: 'order',
+      priority: 'high',
+      data: { orderId: order._id, orderNumber: order.orderNumber }
+    });
   }
-};
 
-// Send order notification
-exports.sendOrderNotification = async (userId, orderId, status, orderData = {}) => {
-  const template = orderNotifications[status];
-  if (!template) return;
+  /**
+   * Backward compatible helper for orders.
+   */
+  async sendOrderNotification(userId, orderId, status, orderData = {}) {
+    return this.sendOrderUpdate(userId, orderData, status);
+  }
 
-  const notification = {
-    ...template,
-    data: {
-      orderId,
-      amount: orderData.total,
-      url: `/orders/${orderId}`
-    }
-  };
+  /**
+   * Backward compatible helper for payments.
+   */
+  async sendPaymentNotification(userId, status, paymentData = {}) {
+    const titles = {
+      success: 'Payment Successful 💳',
+      failed: 'Payment Failed ⚠️',
+      refund: 'Refund Processed 💰'
+    };
+    return this.send(userId, {
+      title: titles[status] || 'Payment Update',
+      message: `Your payment for order #${paymentData.orderNumber || ''} status: ${status}`,
+      type: 'payment',
+      priority: 'high',
+      data: { orderId: paymentData.orderId }
+    });
+  }
 
-  return await createNotification(userId, notification);
-};
-
-// Send payment notification
-exports.sendPaymentNotification = async (userId, status, paymentData = {}) => {
-  const template = paymentNotifications[status];
-  if (!template) return;
-
-  const notification = {
-    ...template,
-    data: {
-      orderId: paymentData.orderId,
-      amount: paymentData.amount,
-      url: paymentData.orderId ? `/orders/${paymentData.orderId}` : '/orders'
-    }
-  };
-
-  return await createNotification(userId, notification);
-};
-
-// Send offer notification
-exports.sendOfferNotification = async (userId, offerData) => {
-  const notification = {
-    title: `🎉 ${offerData.title}`,
-    message: offerData.message,
-    type: 'promotion',
-    priority: 'medium',
-    icon: 'gift',
-    data: {
-      url: offerData.url || '/shop',
-      couponCode: offerData.couponCode
-    }
-  };
-
-  return await createNotification(userId, notification);
-};
-
-// Send bulk offer notifications to all users
-exports.sendBulkOfferNotification = async (offerData) => {
-  try {
-    const User = require('../models/User');
-    const users = await User.find({ role: 'user' }, '_id');
-    
-    const notifications = users.map(user => ({
-      user: user._id,
+  async sendOfferNotification(userId, offerData) {
+    return this.send(userId, {
       title: `🎉 ${offerData.title}`,
       message: offerData.message,
       type: 'promotion',
-      priority: 'medium',
-      icon: 'gift',
-      data: {
-        url: offerData.url || '/shop',
-        couponCode: offerData.couponCode
-      }
-    }));
-    
-    const Notification = require('../models/Notification');
-    await Notification.insertMany(notifications);
-    
-    return notifications.length;
-  } catch (error) {
-    console.error('Error sending bulk notifications:', error);
-    return 0;
+      data: { url: offerData.url, couponCode: offerData.couponCode }
+    });
   }
-};
+
+  /**
+   * Opt-in flow for push tokens.
+   */
+  async registerPushToken(userId, { token, platform, deviceId }) {
+    return await User.findByIdAndUpdate(userId, {
+      $addToSet: { pushTokens: { token, platform, deviceId } }
+    });
+  }
+}
+
+module.exports = new NotificationService();

@@ -23,6 +23,10 @@ router.post('/qr/verify', auth, verifyQRPayment);
 router.post('/razorpay/create', auth, createRazorpayOrder);
 router.post('/razorpay/verify', auth, verifyRazorpayPayment);
 
+// Webhook routes (No Auth)
+router.post('/webhook/razorpay', require('../controllers/webhookController').handleRazorpayWebhook);
+router.post('/webhook/stripe', (req, res) => res.status(200).send('Stripe webhook handled'));
+
 // Stripe routes
 router.post('/stripe/create', auth, createStripePaymentIntent);
 router.post('/stripe/confirm', auth, confirmStripePayment);

@@ -92,24 +92,7 @@ const userSchema = new mongoose.Schema({
       expiresAt: { type: Date, default: () => new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) }, // 3 days
       createdAt: { type: Date, default: Date.now }
     }
-  ],
-  notificationPreferences: {
-    email: { type: Boolean, default: true },
-    sms: { type: Boolean, default: false },
-    push: { type: Boolean, default: true },
-    inApp: { type: Boolean, default: true },
-    promotional: { type: Boolean, default: false }
-  },
-  pushTokens: [{
-    token: { type: String, required: true },
-    platform: { type: String, enum: ['ios', 'android', 'web'], required: true },
-    deviceId: String,
-    createdAt: { type: Date, default: Date.now }
-  }],
-  oneClickEnabled: {
-    type: Boolean,
-    default: false
-  }
+  ]
 }, {
   timestamps: true
 });

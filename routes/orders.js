@@ -9,6 +9,7 @@ const {
   cancelOrder
 } = require('../controllers/orderController');
 const { auth, adminAuth } = require('../middleware/auth');
+const idempotency = require('../middleware/idempotency');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const router = express.Router();
 router.get('/track/:orderNumber', trackOrder);
 
 // User routes
-router.post('/', auth, createOrder);
+router.post('/', auth, idempotency, createOrder);
 router.get('/', auth, getOrders);
 router.get('/:id', auth, getOrder);
 router.get('/:id/invoice', auth, generateInvoice);

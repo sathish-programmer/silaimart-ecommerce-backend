@@ -101,38 +101,6 @@ const settingsSchema = new mongoose.Schema({
     pointsPerRupee: { type: Number, default: 0.01 }, // 1 point for every 100 rupees spent
     redemptionRate: { type: Number, default: 1 }, // 1 point = 1 rupee discount
     minimumRedeemPoints: { type: Number, default: 100 }
-  },
-
-  // Dynamic Offers Settings (Flipkart style Wow Deals, Bank Offers, SuperCoins)
-  offers: {
-    wowDeal: {
-      enabled: { type: Boolean, default: true },
-      title: { type: String, default: 'WOW! DEAL Apply offers for maximum savings' },
-      discountPercentage: { type: Number, default: 15 }, // e.g. 15% extra off
-      minOrderValue: { type: Number, default: 500 }
-    },
-    superCoin: {
-      enabled: { type: Boolean, default: true },
-      benefitTitle: { type: String, default: 'SuperCoin Benefit' },
-      pointsDiscount: { type: Number, default: 12 }, // e.g. ₹12 off using 12 coins
-      coinsRequired: { type: Number, default: 12 }
-    },
-    bankOffers: [
-      {
-        id: { type: String, default: 'bank-1' },
-        title: { type: String, default: 'Bank Offer' },
-        description: { type: String, default: '5% Cashback on Flipkart Axis Bank Card' },
-        code: { type: String, default: 'AXIS5' },
-        discountPercent: { type: Number, default: 5 }
-      },
-      {
-        id: { type: String, default: 'bank-2' },
-        title: { type: String, default: 'Special Offer' },
-        description: { type: String, default: '10% off on ICICI Bank Credit Cards, up to ₹100' },
-        code: { type: String, default: 'ICICI10' },
-        discountPercent: { type: Number, default: 10 }
-      }
-    ]
   }
 }, {
   timestamps: true
