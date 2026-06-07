@@ -93,11 +93,15 @@ exports.getMyBlogs = async (req, res) => {
 
 exports.getBlogs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const { page = 1, limit = 10, search, tag } = req.query;
     const filter = { isPublished: true };
     
     if (search) {
       filter.$text = { $search: search };
+    }
+    
+    if (tag) {
+      filter.tags = tag;
     }
 
     const blogs = await Blog.find(filter)
