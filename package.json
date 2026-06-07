@@ -10,13 +10,14 @@
     "create-superadmin": "node scripts/createSuperAdmin.js"
   },
   "dependencies": {
+    "@google/genai": "^2.7.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.40.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "express-rate-limit": "^6.10.0",
+    "express-rate-limit": "^6.11.2",
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
@@ -24,6 +25,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.4",
     "pdfkit": "^0.17.2",
+    "puppeteer": "^24.43.1",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.2",
     "stripe": "^13.5.0"

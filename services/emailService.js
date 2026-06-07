@@ -50,7 +50,7 @@ const getBaseTemplate = (title, content, preheader = '') => `
       <tr>
         <td class="header">
           <div class="logo">SILAIMART</div>
-          <div class="slogan">Divine Art to Your Doorstep</div>
+          <div class="slogan">Your Premium Shopping Destination</div>
         </td>
       </tr>
       <tr>
@@ -59,7 +59,7 @@ const getBaseTemplate = (title, content, preheader = '') => `
       <tr>
         <td class="footer">
           <p style="margin-bottom: 15px;">&copy; ${new Date().getFullYear()} SilaiMart India. All rights reserved.</p>
-          <p>You're receiving this because you're a valued member of our sanctuary.</p>
+          <p>You're receiving this because you're a valued customer of SilaiMart.</p>
           <div style="margin-top: 20px;">
             <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/policy/privacy" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Privacy Policy</a>
             <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/support" style="color: #78350f; text-decoration: none; font-weight: 700; margin: 0 10px;">Support</a>
@@ -75,20 +75,20 @@ const getBaseTemplate = (title, content, preheader = '') => `
 const sendOrderConfirmation = async (order, user) => {
   const content = `
     <h1>Order Confirmed</h1>
-    <p>Namaste ${user.name},</p>
-    <p>Your journey into divine art has begun. We've safely received your request and our artisans are beginning their work.</p>
+    <p>Hi ${user.name},</p>
+    <p>Thank you for your order! We've received it and are currently processing it.</p>
     
     <div class="card">
-      <span class="label">Order Essence</span>
+      <span class="label">Order Summary</span>
       <div style="font-size: 24px; font-weight: 900; color: #1c1917; margin-bottom: 15px;">#${order.orderNumber}</div>
       <div style="display: flex; gap: 20px; margin-bottom: 10px;">
-        <div style="flex: 1;"><span class="label">Value</span><div style="font-weight: 700;">₹${order.total.toLocaleString()}</div></div>
-        <div style="flex: 1;"><span class="label">Manifestation</span><div style="font-weight: 700;">${order.paymentMethod.toUpperCase()}</div></div>
+        <div style="flex: 1;"><span class="label">Total Amount</span><div style="font-weight: 700;">₹${order.total.toLocaleString()}</div></div>
+        <div style="flex: 1;"><span class="label">Payment Method</span><div style="font-weight: 700;">${order.paymentMethod.toUpperCase()}</div></div>
       </div>
-      ${order.estimatedDeliveryDate ? `<div><span class="label">Expected Presence</span><div style="font-weight: 700;">${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</div></div>` : ''}
+      ${order.estimatedDeliveryDate ? `<div><span class="label">Expected Delivery</span><div style="font-weight: 700;">${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</div></div>` : ''}
     </div>
 
-    <h2>Sacred Items</h2>
+    <h2>Items Ordered</h2>
     ${order.items.map(item => `
       <div style="padding: 15px 0; border-bottom: 1px solid #f0eee8; display: flex; align-items: center;">
         <div style="flex-grow: 1;">
@@ -104,7 +104,7 @@ const sendOrderConfirmation = async (order, user) => {
   await transporter.sendMail({
     from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
     to: user.email,
-    subject: `Divine Confirmation: ${order.orderNumber}`,
+    subject: `Order Confirmation: ${order.orderNumber}`,
     html: getBaseTemplate('Order Confirmed', content, 'Your SilaiMart order is confirmed and being prepared.')
   });
 };
@@ -123,9 +123,9 @@ const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
 
     const statusTitles = {
       confirmed: 'Order Confirmed',
-      processing: 'Being Prepared',
+      processing: 'Processing Order',
       shipped: 'On The Way',
-      delivered: 'Sacred Delivery',
+      delivered: 'Delivered',
       cancelled: 'Order Cancelled',
       refunded: 'Refund Processed',
       unpaid: 'Payment Pending'
@@ -133,16 +133,16 @@ const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
 
     const content = `
       <h1>${statusTitles[newStatus]}</h1>
-      <p>Namaste ${user.name},</p>
+      <p>Hi ${user.name},</p>
       <p>${statusMessages[newStatus]}</p>
       
       <div class="card">
-        <span class="label">Manifestation ID</span>
+        <span class="label">Order ID</span>
         <div style="font-size: 20px; font-weight: 900; color: #1c1917; margin-bottom: 15px;">${order.orderNumber}</div>
         <div class="badge">${newStatus.toUpperCase()}</div>
         
         <div style="margin-top: 20px;">
-          ${order.trackingNumber ? `<span class="label">Tracking Wisdom</span><div style="font-weight: 700;">${order.trackingNumber}</div>` : ''}
+          ${order.trackingNumber ? `<span class="label">Tracking Number</span><div style="font-weight: 700;">${order.trackingNumber}</div>` : ''}
           ${order.deliveryNotes ? `<div style="margin-top: 15px;"><span class="label">Notes</span><p style="margin: 0; font-size: 14px;">${order.deliveryNotes}</p></div>` : ''}
         </div>
       </div>
@@ -164,19 +164,19 @@ const sendOrderStatusUpdate = async (order, user, oldStatus, newStatus) => {
 
 const sendDeliveryDateUpdate = async (order, user) => {
   const content = `
-    <h1>Timeline Shifted</h1>
-    <p>Namaste ${user.name},</p>
-    <p>The cosmic alignment for your delivery has slightly shifted. We want to ensure your sacred piece arrives in perfect stillness.</p>
+    <h1>Delivery Updated</h1>
+    <p>Hi ${user.name},</p>
+    <p>There has been a slight change in your estimated delivery date. We are working hard to get your order to you as quickly as possible.</p>
     
     <div class="card">
-      <span class="label">Order Identity</span>
+      <span class="label">Order ID</span>
       <div style="font-weight: 900; color: #1c1917; margin-bottom: 15px;">${order.orderNumber}</div>
-      <span class="label">New Expected Presence</span>
+      <span class="label">New Expected Delivery</span>
       <div style="font-size: 24px; font-weight: 900; color: #78350f;">${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</div>
-      ${order.deliveryNotes ? `<div style="margin-top: 15px;"><span class="label">Reasoning</span><p style="margin: 0; font-size: 14px;">${order.deliveryNotes}</p></div>` : ''}
+      ${order.deliveryNotes ? `<div style="margin-top: 15px;"><span class="label">Reason</span><p style="margin: 0; font-size: 14px;">${order.deliveryNotes}</p></div>` : ''}
     </div>
     
-    <p style="font-size: 14px; color: #a8a29e;">We apologize for this adjustment and appreciate your divine patience.</p>
+    <p style="font-size: 14px; color: #a8a29e;">We apologize for any inconvenience caused.</p>
   `;
 
   await transporter.sendMail({
@@ -189,12 +189,12 @@ const sendDeliveryDateUpdate = async (order, user) => {
 
 const sendOfferNotification = async (user, offer) => {
   const content = `
-    <h1>Exclusive Blessing</h1>
-    <p>Namaste ${user.name},</p>
-    <p>A rare opportunity has manifested for you to bring more divinity into your space.</p>
+    <h1>Exclusive Offer</h1>
+    <p>Hi ${user.name},</p>
+    <p>A special opportunity has arrived for you to shop your favorite products.</p>
     
     <div style="background: linear-gradient(135deg, #78350f 0%, #a16207 100%); color: white; padding: 40px; border-radius: 24px; text-align: center; margin: 30px 0; box-shadow: 0 15px 30px rgba(120,53,15,0.2);">
-      <div style="font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3em; margin-bottom: 15px; opacity: 0.8;">Special Manifestation</div>
+      <div style="font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3em; margin-bottom: 15px; opacity: 0.8;">Special Offer</div>
       <h2 style="color: white; margin: 0; font-family: 'Playfair Display', serif; font-size: 32px; font-style: italic;">${offer.title}</h2>
       <p style="margin: 15px 0; font-size: 16px; opacity: 0.9;">${offer.description}</p>
       ${offer.discountPercentage ? `<div style="font-size: 48px; font-weight: 900; margin: 20px 0;">${offer.discountPercentage}% OFF</div>` : ''}
@@ -206,23 +206,23 @@ const sendOfferNotification = async (user, offer) => {
     </div>
     
     <div style="text-align: center;">
-      <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/shop" class="button">Explore the Sanctuary</a>
+      <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/shop" class="button">Shop Now</a>
     </div>
     
-    ${offer.validUntil ? `<p style="text-align: center; font-size: 12px; color: #a8a29e; margin-top: 20px;">*Valid through the cycle of ${new Date(offer.validUntil).toLocaleDateString()}</p>` : ''}
+    ${offer.validUntil ? `<p style="text-align: center; font-size: 12px; color: #a8a29e; margin-top: 20px;">*Valid until ${new Date(offer.validUntil).toLocaleDateString()}</p>` : ''}
   `;
 
   await transporter.sendMail({
     from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
     to: user.email,
-    subject: `Divine Offer: ${offer.title}`,
-    html: getBaseTemplate('Special Offering', content, offer.description)
+    subject: `Special Offer: ${offer.title}`,
+    html: getBaseTemplate('Special Offer', content, offer.description)
   });
 };
 
 const sendEmail = async (options) => {
   const content = `
-    <h1>Notice from Sanctuary</h1>
+    <h1>Notification from SilaiMart</h1>
     <div style="white-space: pre-wrap;">${options.message}</div>
   `;
 
@@ -236,20 +236,20 @@ const sendEmail = async (options) => {
 
 const sendCustomOrderQuote = async (request, user) => {
   const content = `
-    <h1>Divine Design Proposal</h1>
-    <p>Namaste ${user.name},</p>
-    <p>Our artisans have meditated on your custom request and formed a vision for its creation.</p>
+    <h1>Custom Order Proposal</h1>
+    <p>Hi ${user.name},</p>
+    <p>Our team has reviewed your custom request and prepared a proposal for your consideration.</p>
     
     <div class="card">
-      <span class="label">Your Request Reflection</span>
+      <span class="label">Your Request Details</span>
       <p style="font-style: italic; color: #78716c; margin-bottom: 25px;">"${request.requestDetails}"</p>
       
       <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-        <div style="flex: 1;"><span class="label">Artisan Value</span><div style="font-size: 20px; font-weight: 900;">₹${request.quotedPrice?.toLocaleString() || 'Pending'}</div></div>
-        <div style="flex: 1;"><span class="label">Creation Cycle</span><div style="font-weight: 700;">${request.estimatedDeliveryDate ? new Date(request.estimatedDeliveryDate).toLocaleDateString() : 'TBD'}</div></div>
+        <div style="flex: 1;"><span class="label">Quoted Price</span><div style="font-size: 20px; font-weight: 900;">₹${request.quotedPrice?.toLocaleString() || 'Pending'}</div></div>
+        <div style="flex: 1;"><span class="label">Estimated Time</span><div style="font-weight: 700;">${request.estimatedDeliveryDate ? new Date(request.estimatedDeliveryDate).toLocaleDateString() : 'TBD'}</div></div>
       </div>
       
-      ${request.adminNotes ? `<div style="margin-top: 15px;"><span class="label">Artisan Notes</span><p style="margin: 0; font-size: 14px;">${request.adminNotes}</p></div>` : ''}
+      ${request.adminNotes ? `<div style="margin-top: 15px;"><span class="label">Notes</span><p style="margin: 0; font-size: 14px;">${request.adminNotes}</p></div>` : ''}
     </div>
     
     <p>If this vision aligns with yours, please proceed via your profile to begin the creation process.</p>
@@ -268,13 +268,13 @@ const sendCustomOrderQuote = async (request, user) => {
 const sendLoyaltyPointsNotification = async (user, points, type, orderDetails = null) => {
   const isEarned = type === 'earned';
   const content = `
-    <h1>Wisdom Rewards</h1>
-    <p>Namaste ${user.name},</p>
-    <p>Your connection with SilaiMart has flourished. You have ${isEarned ? 'received' : 'honored'} <strong>${points} wisdom points</strong>.</p>
+    <h1>Loyalty Points Update</h1>
+    <p>Hi ${user.name},</p>
+    <p>You have ${isEarned ? 'earned' : 'redeemed'} <strong>${points} loyalty points</strong>.</p>
     
     <div style="background: linear-gradient(135deg, #1c1917 0%, #44403c 100%); padding: 40px; border-radius: 24px; text-align: center; color: white;">
       <div style="font-size: 48px; font-weight: 900; margin-bottom: 10px; color: #f59e0b;">${isEarned ? '+' : '-'}${points}</div>
-      <div style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; opacity: 0.7;">Wisdom Balance</div>
+      <div style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; opacity: 0.7;">Points Balance</div>
       <div style="font-size: 20px; font-weight: 900; margin-top: 15px;">${user.loyaltyPoints} Points</div>
     </div>
     
@@ -287,11 +287,11 @@ const sendLoyaltyPointsNotification = async (user, points, type, orderDetails = 
     ` : ''}
     
     <div style="margin-top: 30px; font-size: 14px; padding: 20px; background-color: #faf9f6; border-radius: 12px;">
-      <span class="label" style="color: #78350f;">Point Wisdom:</span>
+      <span class="label" style="color: #78350f;">About Points:</span>
       <ul style="margin: 0; padding-left: 20px; color: #78716c;">
-        <li>1 wisdom point translates to ₹1 of grace</li>
-        <li>Manifest your points at checkout</li>
-        <li>Your points remain eternal in our sanctuary</li>
+        <li>1 point equals ₹1 off your purchase</li>
+        <li>Redeem your points at checkout</li>
+        <li>Your points never expire</li>
       </ul>
     </div>
     
@@ -301,30 +301,30 @@ const sendLoyaltyPointsNotification = async (user, points, type, orderDetails = 
   await transporter.sendMail({
     from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
     to: user.email,
-    subject: `Wisdom Reward: ${isEarned ? '+' : '-'}${points} Points`,
-    html: getBaseTemplate('Loyalty Rewards', content, `You've ${isEarned ? 'earned' : 'redeemed'} new wisdom points at SilaiMart.`)
+    subject: `Loyalty Points Update: ${isEarned ? '+' : '-'}${points} Points`,
+    html: getBaseTemplate('Loyalty Rewards', content, `You've ${isEarned ? 'earned' : 'redeemed'} points at SilaiMart.`)
   });
 };
 
 const sendNewDeviceLoginAlert = async (user, deviceInfo) => {
   const content = `
-    <h1>Security Vigilance</h1>
-    <p>Namaste ${user.name},</p>
-    <p>For your peace of stillness, we're notifying you that a new path into your sanctuary profile was created from an unfamiliar device.</p>
+    <h1>Security Alert</h1>
+    <p>Hi ${user.name},</p>
+    <p>We're writing to let you know that a new sign-in was detected on your account from an unfamiliar device.</p>
     
     <div class="card" style="background-color: #fffbeb; border-color: #fef3c7;">
-      <span class="label" style="color: #92400e;">Manifestation Details</span>
+      <span class="label" style="color: #92400e;">Login Details</span>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
         <div><span class="label">Time</span><div style="font-weight: 700;">${new Date().toLocaleString()}</div></div>
-        <div><span class="label">Location</span><div style="font-weight: 700;">${deviceInfo.location || 'Spiritual Workspace'}</div></div>
-        <div><span class="label">Vessel</span><div style="font-weight: 700;">${deviceInfo.device || 'Modern Tool'}</div></div>
-        <div><span class="label">Lens</span><div style="font-weight: 700;">${deviceInfo.browser || 'Digital Eye'}</div></div>
+        <div><span class="label">Location</span><div style="font-weight: 700;">${deviceInfo.location || 'Unknown Location'}</div></div>
+        <div><span class="label">Device</span><div style="font-weight: 700;">${deviceInfo.device || 'Unknown Device'}</div></div>
+        <div><span class="label">Browser</span><div style="font-weight: 700;">${deviceInfo.browser || 'Unknown Browser'}</div></div>
       </div>
     </div>
     
     <div class="card">
       <h2>Was this you?</h2>
-      <p style="font-size: 14px; color: #44403c;">If you navigated this path, no action is required. If not, please <strong>secure your sanctuary</strong> immediately.</p>
+      <p style="font-size: 14px; color: #44403c;">If you recognize this activity, no action is required. If you don't, please <strong>secure your account</strong> immediately.</p>
       
       <div style="display: flex; gap: 10px; margin-top: 20px;">
         <a href="${process.env.FRONTEND_URL || 'https://silaimart.in'}/profile" style="flex: 1; text-align: center; border: 2px solid #ef4444; color: #ef4444; padding: 12px; border-radius: 12px; font-weight: 900; font-size: 12px; text-transform: uppercase;">Secure Account</a>
@@ -343,19 +343,19 @@ const sendNewDeviceLoginAlert = async (user, deviceInfo) => {
 
 const sendInvoiceEmail = async (order, user, pdfBuffer) => {
   const content = `
-    <h1>Sacred Document Received</h1>
-    <p>Namaste ${user.name},</p>
-    <p>Your divine order has been delivered and your sanctuary is now complete. Attached is the sacred receipt of our exchange.</p>
+    <h1>Your Invoice is Here</h1>
+    <p>Hi ${user.name},</p>
+    <p>Your order has been delivered successfully. Attached is your invoice for this purchase.</p>
     
     <div class="card">
-      <span class="label">Order Essence</span>
+      <span class="label">Order ID</span>
       <div style="font-size: 24px; font-weight: 900; color: #1c1917; margin-bottom: 10px;">#${order.orderNumber}</div>
       <p style="margin: 0; font-size: 14px;">We've attached your official invoice to this email for your records.</p>
     </div>
     
     <div style="margin: 30px 0; padding: 25px; border-radius: 16px; background-color: #ecfdf5; border: 1px solid #d1fae5; text-align: center;">
       <h2 style="color: #065f46; margin-bottom: 5px;">Successfully Delivered</h2>
-      <p style="color: #065f46; margin: 0; font-size: 14px;">We hope this piece brings stillness and joy to your life.</p>
+      <p style="color: #065f46; margin: 0; font-size: 14px;">We hope you enjoy your purchase.</p>
     </div>
 
     <p style="font-size: 14px; text-align: center;">Would you mind sharing your experience with our community?</p>
@@ -368,7 +368,7 @@ const sendInvoiceEmail = async (order, user, pdfBuffer) => {
     from: process.env.EMAIL_USER || 'silaimartindia@gmail.com',
     to: user.email,
     subject: `Invoice for ${order.orderNumber}`,
-    html: getBaseTemplate('Your Invoice', content, 'Thank you for your sacrifice. Your invoice is attached.'),
+    html: getBaseTemplate('Your Invoice', content, 'Thank you for your purchase. Your invoice is attached.'),
     attachments: [
       {
         filename: `invoice-${order.orderNumber}.pdf`,

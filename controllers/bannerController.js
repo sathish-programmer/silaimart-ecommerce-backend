@@ -10,12 +10,14 @@ exports.getBanners = async (req, res) => {
       filter.isActive = true;
       filter.$or = [
         { startDate: { $exists: false } },
+        { startDate: null },
         { startDate: { $lte: new Date() } }
       ];
       filter.$and = [
         {
           $or: [
             { endDate: { $exists: false } },
+            { endDate: null },
             { endDate: { $gte: new Date() } }
           ]
         }

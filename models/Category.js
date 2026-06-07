@@ -22,6 +22,10 @@ const categorySchema = new mongoose.Schema({
     url: String,
     alt: String
   },
+  sizeGuideImage: {
+    url: String,
+    alt: String
+  },
   parent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',

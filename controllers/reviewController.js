@@ -4,6 +4,30 @@ const Order = require('../models/Order');
 const mongoose = require('mongoose');
 
 // Get user's review for a product
+const updateProductRating = async (productId) => {
+  const stats = await Review.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId), isApproved: true } },
+    {
+      $group: {
+        _id: null,
+        averageRating: { $avg: '$rating' },
+        totalReviews: { $sum: 1 }
+      }
+    }
+  ]);
+
+  if (stats.length > 0) {
+    await Product.findByIdAndUpdate(productId, {
+      'rating.average': Math.round(stats[0].averageRating * 10) / 10,
+      'rating.count': stats[0].totalReviews
+    });
+  } else {
+    await Product.findByIdAndUpdate(productId, {
+      'rating.average': 0,
+      'rating.count': 0
+    });
+  }
+};
 exports.getUserReview = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -196,6 +220,8 @@ exports.updateReviewStatus = async (req, res) => {
       return res.status(404).json({ message: 'Review not found' });
     }
     
+    await updateProductRating(review.product._id);
+    
     res.json(review);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -211,6 +237,8 @@ exports.deleteReview = async (req, res) => {
     if (!review) {
       return res.status(404).json({ message: 'Review not found' });
     }
+    
+    await updateProductRating(review.product);
     
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {

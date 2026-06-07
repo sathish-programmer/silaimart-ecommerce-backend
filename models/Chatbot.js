@@ -4,7 +4,7 @@ const chatbotSchema = new mongoose.Schema({
   // Bot Configuration
   name: { type: String, default: 'SilaiMart Assistant' },
   avatar: { type: String, default: '/bot-avatar.png' },
-  welcomeMessage: { type: String, default: 'Hello! I\'m here to help you find the perfect sculpture. How can I assist you today?' },
+  welcomeMessage: { type: String, default: 'Hello! I\'m here to help you find the perfect product. How can I assist you today?' },
   isActive: { type: Boolean, default: true },
   
   // Predefined Responses

@@ -4,7 +4,7 @@ const masterValuesSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['stone_types', 'finishes', 'materials', 'sculpture_types', 'sizes', 'colors']
+    enum: ['stone_types', 'finishes', 'materials', 'product_types', 'sizes', 'colors']
   },
   values: [{
     label: { type: String, required: true },
@@ -65,7 +65,7 @@ masterValuesSchema.statics.createDefaults = async function() {
       ]
     },
     {
-      category: 'sculpture_types',
+      category: 'product_types',
       values: [
         { label: 'Religious', value: 'religious', order: 1 },
         { label: 'Abstract', value: 'abstract', order: 2 },

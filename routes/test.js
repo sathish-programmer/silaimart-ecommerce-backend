@@ -20,7 +20,7 @@ router.post('/test-email', async (req, res) => {
       trackingNumber: 'TRK123456',
       items: [
         {
-          product: { name: 'Test Sculpture' },
+          product: { name: 'Test Product' },
           quantity: 1,
           price: 2000,
           discountPrice: 1800
@@ -41,7 +41,7 @@ router.post('/test-email', async (req, res) => {
       case 'offer':
         const testOffer = {
           title: 'Diwali Special Offer',
-          description: 'Get amazing discounts on all sculptures',
+          description: 'Get amazing discounts on all products',
           discountPercentage: 25,
           couponCode: 'DIWALI25',
           validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)

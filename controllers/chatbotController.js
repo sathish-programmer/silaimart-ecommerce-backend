@@ -1,5 +1,6 @@
 const { Chatbot, Conversation } = require('../models/Chatbot');
 const { Product, User, Order } = require('../models');
+const { GoogleGenAI } = require('@google/genai');
 
 // Get bot configuration
 exports.getBotConfig = async (req, res) => {
@@ -83,235 +84,136 @@ async function generateBotResponse(userMessage, userId) {
   if (userId) {
     try {
       user = await User.findById(userId);
-      lastOrder = await Order.findOne({ user: userId }).sort({ createdAt: -1 });
+      lastOrder = await Order.findOne({ user: userId }).sort({ createdAt: -1 }).populate('items.product');
     } catch (err) {
       console.error('Error fetching user context:', err);
     }
   }
 
-  const userName = user ? user.name.split(' ')[0] : '';
+  const userName = user ? user.name.split(' ')[0] : 'Guest';
 
-  // Check for predefined responses first
+  // Check for predefined admin responses first (override AI)
   for (const response of bot?.responses || []) {
     if (response.isActive && response.trigger.some(trigger =>
-      message.includes(trigger.toLowerCase())
+      message.toLowerCase().includes(trigger.toLowerCase())
     )) {
       return {
         message: response.response,
-        type: 'text'
+        type: 'action',
+        data: { suggestions: ['menu'] }
       };
     }
   }
 
-  // Greeting responses (Varied)
-  if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-    const greetings = [
-      `Namaste${userName ? ' ' + userName : ''}! Welcome to SilaiMart. How can I assist you in finding the perfect divine sculpture today? 🙏`,
-      `Hello${userName ? ' ' + userName : ''}! It's a pleasure to have you here. Looking for a specific deity or material? ✨`,
-      `Hi there! Hope you're having a blessed day. How can I help you explore our sacred collection? 🕉️`
-    ];
+  // Intercept 'menu' or 'help' command for quick access
+  if (message === 'menu' || message === 'help' || message.includes('support')) {
     return {
-      message: greetings[Math.floor(Math.random() * greetings.length)],
-      type: 'action',
-      data: {
-        quickReplies: [
-          { text: 'Browse Sculptures', action: 'Show me your sculptures' },
-          { text: 'Popular Items', action: 'What are your popular sculptures?' },
-          { text: 'Need Help', action: 'I need help' }
-        ]
-      }
-    };
-  }
-
-  // Enhanced product search
-  const productKeywords = ['ganesha', 'vinayagar', 'shiva', 'vishnu', 'krishna', 'hanuman', 'durga', 'lakshmi', 'saraswati', 'buddha', 'sculpture', 'statue', 'murti', 'idol', 'bronze', 'stone', 'marble'];
-  const hasProductKeyword = productKeywords.some(keyword => message.includes(keyword));
-
-  if (hasProductKeyword || message.includes('show') || message.includes('find') || message.includes('search')) {
-    const products = await searchProducts(message);
-    if (products.length > 0) {
-      const responses = [
-        `I've found some exquisite pieces for you${userName ? ', ' + userName : ''}. Here are the top matches from our collection:`,
-        `Based on your request, I recommend these divine sculptures:`,
-        `Here are some sacred art pieces that might be what you're looking for:`
-      ];
-      return {
-        message: responses[Math.floor(Math.random() * responses.length)],
-        type: 'product',
-        data: {
-          products: products.slice(0, 6), // Return more products
-          suggestions: [
-            'Can I see more details for one of these?',
-            'What materials are these made from?',
-            'Do you have any smaller sizes?'
-          ]
-        }
-      };
-    } else {
-      return {
-        message: "I couldn't find exact matches for that term, but our featured collection is truly special. Take a look:",
-        type: 'product',
-        data: {
-          products: await getPopularProducts(),
-          suggestions: [
-            'Search for Ganesha',
-            'Search for Shiva',
-            'Show marble sculptures'
-          ]
-        }
-      };
-    }
-  }
-
-  // Detailed Help & Support
-  if (message.includes('help') || message.includes('support') || message.includes('assist') || message.includes('menu')) {
-    return {
-      message: `I'm here to ensure your experience with SilaiMart is seamless${userName ? ', ' + userName : ''}. What can I guide you with today?`,
+      message: `Here are some quick options to help you navigate, ${userName}:`,
       type: 'action',
       data: {
         suggestions: [
-          '📦 Track an existing order',
-          '🚚 Shipping & Delivery timelines',
-          '🔄 Returns & Refund policy',
-          '💎 Material & Craftsmanship details',
-          '📞 Talk to our artisan support'
-        ],
-        quickReplies: [
-          { text: 'Track Order', action: 'Track my order' },
-          { text: 'Returns Info', action: 'What is your return policy?' },
-          { text: 'Shipping Details', action: 'Shipping information' },
-          { text: 'Contact Us', action: 'redirect:/support' }
+          '🛍️ Browse collection',
+          '📦 Check order status',
+          '🚚 Shipping & Delivery',
+          '🔄 Returns info',
+          '📞 Contact Support'
         ]
       }
     };
   }
 
-  // Material and craftsmanship
-  if (message.includes('material') || message.includes('stone') || message.includes('marble') || message.includes('brass') || message.includes('bronze')) {
+  // Check if GEMINI_API_KEY is configured
+  if (!process.env.GEMINI_API_KEY) {
     return {
-      message: 'At SilaiMart, we pride ourselves on using sacred materials for our art:',
+      message: `Hi ${userName}! My AI brain isn't connected yet. To enable real-time, dynamic AI chat, please add a valid **GEMINI_API_KEY** to the \`backend/.env\` file. In the meantime, you can browse our collections manually.`,
       type: 'action',
       data: {
-        steps: [
-          "**Makrana Marble**: Pure white marble, renowned for its spiritual radiance.",
-          "**Panchaloha Bronze**: A traditional five-metal alloy used in Chola-style casting.",
-          "**Black Granite**: Durable, high-detail stone from Southern India.",
-          "**Natural Sandstone**: Echoing the textures of India's ancient cave temples."
-        ],
-        quickReplies: [
-          { text: 'Show Marble Art', action: 'Show marble sculptures' },
-          { text: 'Bronze Collection', action: 'Show bronze sculptures' }
-        ]
+        suggestions: ['🛍️ Browse Products', '📦 Check Orders', '📞 Contact Support']
       }
     };
   }
 
-  // Pricing & Deals
-  if (message.includes('price') || message.includes('cost') || message.includes('₹') || message.includes('offer') || message.includes('discount')) {
-    return {
-      message: 'We offer divine art across various price ranges to suit every home:',
-      type: 'action',
-      data: {
-        priceRanges: [
-          { range: '₹500 - ₹2,000', description: 'Small decorative and gift items' },
-          { range: '₹2,000 - ₹10,000', description: 'Medium-sized household shrines' },
-          { range: '₹10,000+', description: 'Premium large-scale artisan masterpieces' }
-        ],
-        quickReplies: [
-          { text: 'Budget Finds', action: 'Show products under 2000' },
-          { text: 'Current Offers', action: 'Show current offers' }
-        ]
-      }
-    };
-  }
+  try {
+    // 1. Gather context to inject into AI
+    const popularProducts = await getPopularProducts();
+    const catalogSnippet = popularProducts.map(p => `- ${p.name} (₹${p.price})`).join('\n');
+    
+    let orderContext = 'User has no recent orders.';
+    if (lastOrder) {
+      orderContext = `Recent Order #${lastOrder.orderNumber}: Status is ${lastOrder.orderStatus}. Total: ₹${lastOrder.total}. Items: ${lastOrder.items.map(i => i.product?.name).join(', ')}. Estimated delivery: ${lastOrder.estimatedDeliveryDate ? new Date(lastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Pending'}.`;
+    }
 
-  // Shipping & Tracking
-  if (message.includes('shipping') || message.includes('delivery') || message.includes('order status') || message.includes('track')) {
-    if (lastOrder && !message.match(/sm\d+/i)) {
-      const freshLastOrder = await Order.findById(lastOrder._id).populate('items.product');
-      return {
-        message: `Your most recent order #${freshLastOrder.orderNumber} is currently **${freshLastOrder.orderStatus.toUpperCase()}**.`,
-        type: 'action',
-        data: {
-          steps: [
-            `Status: ${freshLastOrder.orderStatus}`,
-            `Estimated Delivery: ${freshLastOrder.estimatedDeliveryDate ? new Date(freshLastOrder.estimatedDeliveryDate).toLocaleDateString() : 'Confirmed soon'}`,
-            `Items: ${freshLastOrder.items.length} item(s)`
-          ],
-          quickReplies: [
-            { text: 'View Full Order', action: `redirect:/orders/${freshLastOrder._id}` },
-            { text: 'Track Another', action: 'I have another Order ID' }
-          ]
-        }
-      };
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const prompt = `You are SilaiMart Assistant, a highly intelligent, polite, and brief e-commerce assistant for an Indian premium product store named SilaiMart. 
+Do not talk about sculptures unless explicitly asked; refer to products generally as "premium products", "home decor", or "items".
+
+User's Name: ${userName}
+User's Message: "${userMessage}"
+
+--- CONTEXT ---
+Order History: ${orderContext}
+Popular Products in Catalog:
+${catalogSnippet}
+---------------
+
+Your job is to answer the user's question directly based on the context provided. Keep your response conversational, helpful, and concise (1-3 sentences max). If they ask about their order, use the Order History context to tell them the exact status. If they ask for recommendations, suggest items from the Popular Products catalog. Do NOT hallucinate products that aren't in the catalog snippet. Format your response cleanly using markdown if needed.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt
+    });
+
+    // Determine if we should attach product cards visually
+    const responseText = response.text;
+    const hasProductKeyword = ['buy', 'shop', 'product', 'recommend', 'show'].some(kw => message.includes(kw));
+
+    if (hasProductKeyword) {
+      const searchRes = await searchProducts(message);
+      if (searchRes.length > 0) {
+        return {
+          message: responseText,
+          type: 'product',
+          data: {
+            products: searchRes.slice(0, 4),
+            suggestions: ['Show me more', 'Track my order', 'Talk to support']
+          }
+        };
+      }
     }
 
     return {
-      message: 'We deliver sacred art safely to your doorstep. What would you like to know?',
+      message: responseText,
       type: 'action',
       data: {
-        quickReplies: [
-          { text: 'Shipping Rates', action: 'What is shipping cost?' },
-          { text: 'I have an Order ID', action: 'Track order sm' },
-          { text: 'Delivery Times', action: 'How long does delivery take?' }
-        ]
+        suggestions: ['🛍️ Shop', '🚚 Track Order', '📞 Help']
+      }
+    };
+
+  } catch (err) {
+    console.error('Gemini API error:', err);
+    return {
+      message: `I'm having a little trouble connecting to my AI brain right now. Please try again in a moment!`,
+      type: 'action',
+      data: {
+        suggestions: ['🛍️ Browse Products', '📞 Contact Support']
       }
     };
   }
-
-  // Default Fallback (Varied)
-  const fallbacks = [
-    `I'm not quite sure I follow, but I'd love to help you find something special${userName ? ', ' + userName : ''}. Try asking about a specific deity like 'Ganesha' or 'Shiva'.`,
-    `I'm still learning the way of the artist! Could you rephrase that? Or would you like to see our most popular sculptures?`,
-    `That's a great question! While I might not have a specific answer for that yet, I can certainly help you track an order or browse our collection.`
-  ];
-  return {
-    message: fallbacks[Math.floor(Math.random() * fallbacks.length)],
-    type: 'action',
-    data: {
-      suggestions: [
-        '🕉️ Browse divine statues',
-        '📦 Check order status',
-        '💎 Learn about materials',
-        '📞 Talk to support'
-      ]
-    }
-  };
 }
 
 // Search products based on message
 async function searchProducts(message) {
   const keywords = extractKeywords(message);
 
-  // Enhanced search with deity names and product types
-  const deityMap = {
-    'ganesha': ['ganesha', 'vinayagar', 'ganapati'],
-    'shiva': ['shiva', 'mahadev', 'nataraja'],
-    'krishna': ['krishna', 'kanha', 'govind'],
-    'hanuman': ['hanuman', 'bajrang'],
-    'buddha': ['buddha', 'gautam'],
-    'durga': ['durga', 'devi'],
-    'lakshmi': ['lakshmi', 'laxmi'],
-    'saraswati': ['saraswati', 'saraswathi']
-  };
-
-  let searchTerms = [...keywords];
-
-  // Add related deity terms
-  Object.entries(deityMap).forEach(([deity, variants]) => {
-    if (variants.some(variant => message.includes(variant))) {
-      searchTerms.push(deity, ...variants);
-    }
-  });
-
   const query = {
     $and: [
       {
         $or: [
-          { name: { $regex: searchTerms.join('|'), $options: 'i' } },
-          { description: { $regex: searchTerms.join('|'), $options: 'i' } },
-          { tags: { $in: searchTerms } },
-          { 'sculptureDetails.deity': { $regex: searchTerms.join('|'), $options: 'i' } }
+          { name: { $regex: keywords.join('|'), $options: 'i' } },
+          { description: { $regex: keywords.join('|'), $options: 'i' } },
+          { tags: { $in: keywords } },
+          { 'specifications.type': { $regex: keywords.join('|'), $options: 'i' } },
+          { 'specifications.collection': { $regex: keywords.join('|'), $options: 'i' } }
         ]
       },
       { isActive: true }
@@ -321,7 +223,7 @@ async function searchProducts(message) {
   return await Product.find(query)
     .populate('category', 'name')
     .limit(8)
-    .select('name price discountPrice images category sculptureDetails');
+    .select('name price discountPrice images category specifications productDetails');
 }
 
 // Get popular products when no specific search

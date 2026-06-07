@@ -80,10 +80,10 @@ const getCategoryById = async (req, res) => {
 // Create category (Admin only)
 const createCategory = async (req, res) => {
   try {
-    const { name, description, image } = req.body;
+    const { name, description, image, parent } = req.body;
     
     // Check if category already exists
-    const existingCategory = await Category.findOne({ name: { $regex: new RegExp(name, 'i') } });
+    const existingCategory = await Category.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
     if (existingCategory) {
       return res.status(400).json({ success: false, message: 'Category already exists' });
     }
@@ -97,6 +97,7 @@ const createCategory = async (req, res) => {
       slug,
       description,
       image,
+      parent: parent || null,
       createdBy: req.user.userId
     });
     
@@ -110,7 +111,7 @@ const createCategory = async (req, res) => {
 // Update category (Admin only)
 const updateCategory = async (req, res) => {
   try {
-    const { name, description, image, isActive } = req.body;
+    const { name, description, image, isActive, parent } = req.body;
     
     const category = await Category.findById(req.params.id);
     if (!category) {
@@ -120,7 +121,7 @@ const updateCategory = async (req, res) => {
     // Check if name is being changed and if it conflicts
     if (name && name !== category.name) {
       const existingCategory = await Category.findOne({ 
-        name: { $regex: new RegExp(name, 'i') },
+        name: { $regex: new RegExp(`^${name}$`, 'i') },
         _id: { $ne: req.params.id }
       });
       if (existingCategory) {
@@ -130,6 +131,7 @@ const updateCategory = async (req, res) => {
     
     // Generate new slug if name changed
     const updateData = { description, image, isActive, updatedAt: Date.now() };
+    if (parent !== undefined) updateData.parent = parent || null;
     if (name) {
       updateData.name = name;
       if (name !== category.name) {

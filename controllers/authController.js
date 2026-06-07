@@ -95,7 +95,7 @@ exports.login = async (req, res) => {
         const clientIp = deviceInfo.ip;
 
         if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp.includes('::ffff:127.0.0.1')) {
-          location = 'Local Development (Sanctuary)';
+          location = 'Local Development (Store)';
         } else {
           // Attempting to provide a better placeholder for remote IPs
           location = `Remote Connection (${clientIp})`;
@@ -160,23 +160,36 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone } = req.body;
-    const user = await User.findById(req.user.userId);
+    const { name, phone, notificationPreferences, oneClickEnabled } = req.body;
+
+    // Build only the fields that were sent in the request
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (notificationPreferences !== undefined) updateData.notificationPreferences = notificationPreferences;
+    if (oneClickEnabled !== undefined) updateData.oneClickEnabled = oneClickEnabled;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    // Use findByIdAndUpdate with $set — atomic, works even if field didn't exist yet in DB
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.name = name || user.name;
-    user.phone = phone || user.phone;
-
-    await user.save();
-
-    res.json({ message: 'Profile updated successfully', user: user.toObject({ getters: true }) });
+    res.json({ message: 'Profile updated successfully', user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.addAddress = async (req, res) => {
   try {

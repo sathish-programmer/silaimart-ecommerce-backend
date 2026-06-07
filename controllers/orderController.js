@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Order, Product, Coupon, User, Settings, LoyaltyTransaction } = require('../models');
+const loyaltyService = require('../services/loyaltyService');
 const { sendOrderNotification, sendPaymentNotification } = require('../services/notificationService');
 const { sendOrderConfirmation, sendOrderStatusUpdate, sendDeliveryDateUpdate, sendLoyaltyPointsNotification } = require('../services/emailService');
 const { generateInvoicePDF } = require('../utils/pdfGenerator');
@@ -117,32 +118,54 @@ exports.getOrderById = async (req, res) => {
 };
 
 exports.createOrder = async (req, res) => {
+  const isStandalone = process.env.NODE_ENV === 'development' || 
+                       process.env.MONGODB_URI?.includes('localhost') || 
+                       process.env.MONGODB_URI?.includes('127.0.0.1');
+
+  let session = null;
+  let opt = undefined;
+
+  if (!isStandalone) {
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+      opt = { session };
+    } catch (err) {
+      console.warn('[MongoDB] Failed to start transaction, running without transaction');
+      opt = undefined;
+    }
+  } else {
+    console.warn('[MongoDB] Standalone mode detected: running createOrder without transaction');
+  }
+
   try {
     const { items, shippingAddress, paymentMethod, couponCode, loyaltyPointsUsed = 0 } = req.body;
-
-    console.log('Order creation request:', { loyaltyPointsUsed, couponCode });
 
     let subtotal = 0;
     const orderItems = [];
 
+    // 1. Atomic Stock Check & Decrement
     for (const item of items) {
-      const product = await Product.findById(item.product);
-      if (!product) {
-        return res.status(404).json({ message: `Product ${item.product} not found` });
-      }
+      const updatedProduct = await Product.findOneAndUpdate(
+        { _id: item.product, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity } },
+        { new: true, ...opt }
+      );
 
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}`
+      if (!updatedProduct) {
+        if (opt && session?.inTransaction()) await session.abortTransaction();
+        if (opt && session) session.endSession();
+        return res.status(400).json({ 
+          message: `Product ${item.product} is out of stock or insufficient quantity` 
         });
       }
 
-      const price = product.discountPrice || product.price;
+      const price = updatedProduct.discountPrice || updatedProduct.price;
       orderItems.push({
-        product: product._id,
+        product: updatedProduct._id,
         quantity: item.quantity,
-        price: product.price,
-        discountPrice: product.discountPrice
+        price: updatedProduct.price,
+        discountPrice: updatedProduct.discountPrice
       });
 
       subtotal += price * item.quantity;
@@ -152,71 +175,60 @@ exports.createOrder = async (req, res) => {
     let coupon = null;
     let loyaltyDiscount = 0;
 
-    // Handle coupon discount
+    // 2. Coupon Validation
     if (couponCode) {
       coupon = await Coupon.findOne({
         code: couponCode.toUpperCase(),
         isActive: true,
         validFrom: { $lte: new Date() },
         validUntil: { $gte: new Date() }
-      });
+      }).session(opt ? opt.session : null);
 
       if (coupon && subtotal >= coupon.minimumAmount) {
         if (coupon.type === 'percentage') {
           discount = (subtotal * coupon.value) / 100;
-          if (coupon.maximumDiscount) {
-            discount = Math.min(discount, coupon.maximumDiscount);
-          }
+          if (coupon.maximumDiscount) discount = Math.min(discount, coupon.maximumDiscount);
         } else {
           discount = coupon.value;
         }
 
         await Coupon.updateOne(
           { _id: coupon._id },
-          { $inc: { usedCount: 1 } }
+          { $inc: { usedCount: 1 } },
+          opt
         );
       }
     }
 
-    // Handle loyalty points discount
+    // 3. Loyalty Validation
     if (loyaltyPointsUsed > 0) {
-      console.log('Processing loyalty points:', loyaltyPointsUsed);
-      const user = await User.findById(req.user.userId);
-      const userPoints = Number(user.loyaltyPoints) || 0;
-      const pointsToUse = Number(loyaltyPointsUsed) || 0;
-
-      console.log('User points:', userPoints, 'Points to use:', pointsToUse);
-
-      if (userPoints >= pointsToUse) {
-        loyaltyDiscount = pointsToUse; // 1 point = 1 rupee
-        console.log('Loyalty discount set to:', loyaltyDiscount);
-        // Deduct loyalty points from user
-        await User.findByIdAndUpdate(req.user.userId, {
-          $inc: { loyaltyPoints: -pointsToUse }
-        });
-        console.log('Points deducted from user');
+      const user = await User.findById(req.user.userId).session(opt ? opt.session : null);
+      if ((user.loyaltyPoints || 0) >= loyaltyPointsUsed) {
+        loyaltyDiscount = loyaltyPointsUsed; 
+        user.loyaltyPoints -= loyaltyPointsUsed;
+        await user.save(opt);
       } else {
-        return res.status(400).json({
-          message: 'Insufficient loyalty points',
-          availablePoints: userPoints,
-          requestedPoints: pointsToUse
-        });
+        if (opt && session?.inTransaction()) await session.abortTransaction();
+        if (opt && session) session.endSession();
+        return res.status(400).json({ message: 'Insufficient loyalty points' });
       }
     }
 
-    // Get settings for dynamic shipping and tax
+    // 4. Calculations
     const settings = await Settings.getSettings();
     const freeShippingThreshold = settings.shipping?.freeShippingThreshold ?? 1000;
     const standardShippingPrice = settings.shipping?.standardShipping ?? 50;
     
     const shippingCost = subtotal >= freeShippingThreshold ? 0 : standardShippingPrice;
-    const totalDiscount = discount + loyaltyDiscount;
-    const taxRate = settings.tax?.rate ?? 18; // Default to 18% if not set
+    const wowDiscount = settings.offers?.wowDeal?.enabled ? Math.round(subtotal * (settings.offers.wowDeal.discountPercentage || 15) / 100) : 0;
+    const totalDiscount = discount + loyaltyDiscount + wowDiscount;
+    const taxRate = settings.tax?.rate ?? 18;
     const tax = Math.round((subtotal - totalDiscount) * (taxRate / 100));
     const total = Math.max(0, subtotal - totalDiscount + shippingCost + tax);
 
     const orderNumber = `SM${Date.now()}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
 
+    // 5. Order Record
     const order = new Order({
       orderNumber,
       user: req.user.userId,
@@ -232,61 +244,66 @@ exports.createOrder = async (req, res) => {
       shippingAddress,
       paymentMethod,
       orderStatus: 'pending',
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending'
+      paymentStatus: 'pending'
     });
 
-    await order.save();
+    await order.save(opt);
 
-    // Create loyalty transaction record after order is saved
+    // 6. Loyalty Ledger
     if (loyaltyPointsUsed > 0) {
-      console.log('Creating loyalty transaction for:', loyaltyPointsUsed, 'points');
-      const updatedUser = await User.findById(req.user.userId);
-      const transaction = await LoyaltyTransaction.create({
+      await LoyaltyTransaction.create([{
         user: req.user.userId,
         type: 'redeemed',
         points: loyaltyPointsUsed,
         description: `Redeemed ${loyaltyPointsUsed} points for order discount`,
         orderId: order._id,
-        balanceAfter: updatedUser.loyaltyPoints,
-        metadata: {
-          redemptionAmount: loyaltyPointsUsed,
-          orderNumber: order.orderNumber
-        }
-      });
-      console.log('Loyalty transaction created:', transaction._id);
+        balanceAfter: (await User.findById(req.user.userId).session(opt ? opt.session : null)).loyaltyPoints
+      }], opt);
     }
 
-    // Update product stock
-    for (const item of items) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        { $inc: { stock: -item.quantity } }
-      );
+    if (opt && session?.inTransaction()) {
+      await session.commitTransaction();
+    }
+    if (opt && session) session.endSession();
+
+    // 7. Post-Transaction Actions (Notifications)
+    try {
+      const populatedOrder = await Order.findById(order._id)
+        .populate('items.product', 'name images price')
+        .populate('user', 'name email');
+
+      await sendOrderConfirmation(populatedOrder, populatedOrder.user);
+      
+      // Notify the customer
+      await sendOrderNotification(req.user.userId, order._id, 'created', populatedOrder);
+
+      // Notify the admins
+      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select('_id');
+      for (const admin of admins) {
+        await sendOrderNotification(admin._id, order._id, 'created', populatedOrder);
+      }
+
+      if (paymentMethod === 'cod') {
+        await sendPaymentNotification(req.user.userId, 'success', {
+          orderId: order._id,
+          amount: order.total
+        });
+      }
+    } catch (notifyError) {
+      console.error('[OrderController] Post-order notifications failed:', notifyError);
     }
 
-    await order.populate([
-      { path: 'items.product', select: 'name images price' },
-      { path: 'user', select: 'name email' }
-    ]);
-
-    const user = await User.findById(req.user.userId);
-    await sendOrderConfirmation(order, user);
-    await sendOrderNotification(req.user.userId, order._id, 'created', order);
-
-    if (paymentMethod === 'cod') {
-      await sendPaymentNotification(req.user.userId, 'success', {
-        orderId: order._id,
-        amount: order.total
-      });
-    }
-
-    res.status(201).json({
-      success: true,
+    res.status(201).json({ 
+      success: true, 
       message: 'Order created successfully',
-      order,
-      orderNumber: order.orderNumber
+      orderId: order._id, 
+      orderNumber: order.orderNumber 
     });
+
   } catch (error) {
+    if (opt && session?.inTransaction()) await session.abortTransaction();
+    if (opt && session) session.endSession();
+    console.error('Order creation error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -402,38 +419,23 @@ exports.updateOrderStatus = async (req, res) => {
     ).populate('items.product', 'name images price')
       .populate('user', 'name email');
 
-    // Award loyalty points when order is delivered
+    // Award loyalty points when order is delivered using centralized service
     if (orderStatus === 'delivered' && originalStatus !== 'delivered') {
-      const settings = await Settings.getSettings();
-      const loyaltyPointsPerRupee = settings.loyalty?.pointsPerRupee || 0.1; // 1 point for every 10 rupees
-      const pointsAwarded = Math.floor(updatedOrder.total * loyaltyPointsPerRupee);
-      if (pointsAwarded > 0) {
-        await User.findByIdAndUpdate(updatedOrder.user._id, { $inc: { loyaltyPoints: pointsAwarded } });
-        console.log(`Awarded ${pointsAwarded} loyalty points to user ${updatedOrder.user._id}`);
-
-        // Create loyalty transaction record
-        const updatedUser = await User.findById(updatedOrder.user._id);
-        await LoyaltyTransaction.create({
-          user: updatedOrder.user._id,
-          type: 'earned',
-          points: pointsAwarded,
-          description: `Earned ${pointsAwarded} points for order #${updatedOrder.orderNumber}`,
-          orderId: updatedOrder._id,
-          balanceAfter: updatedUser.loyaltyPoints,
-          metadata: {
+      try {
+        const transaction = await loyaltyService.creditPointsForOrder(updatedOrder.user._id, updatedOrder);
+        
+        if (transaction && sendEmail) {
+          // Send loyalty points email
+          await sendLoyaltyPointsNotification(updatedOrder.user, transaction.points, 'earned', {
             orderNumber: updatedOrder.orderNumber,
-            orderTotal: updatedOrder.total
-          }
-        });
-
-        // Send loyalty points email
-        await sendLoyaltyPointsNotification(updatedUser, pointsAwarded, 'earned', {
-          orderNumber: updatedOrder.orderNumber,
-          total: updatedOrder.total
-        });
+            total: updatedOrder.total
+          });
+        }
+      } catch (loyaltyError) {
+        console.error('[OrderController] Loyalty credit failed:', loyaltyError);
+        // Don't fail the order update if loyalty fails, but log it
       }
 
-      // ── Generate and send Invoice upon delivery ──
       try {
         console.log('Generating premium PDF invoice for automatic delivery...');
         const pdfBuffer = await generateInvoicePDF(updatedOrder);
@@ -441,6 +443,15 @@ exports.updateOrderStatus = async (req, res) => {
         console.log('Premium Invoice emailed successfully to', updatedOrder.user.email);
       } catch (pdfError) {
         console.error('Failed to auto-generate or send invoice:', pdfError);
+      }
+    }
+
+    // Reverse loyalty points if order is cancelled after being delivered
+    if (orderStatus === 'cancelled' && originalStatus === 'delivered') {
+      try {
+        await loyaltyService.reversePointsForOrder(updatedOrder.user._id, updatedOrder._id);
+      } catch (reverseError) {
+        console.error('[OrderController] Loyalty reversal failed:', reverseError);
       }
     }
     if (sendEmail) {

@@ -4,108 +4,108 @@ require('dotenv').config();
 
 const categories = [
   {
-    name: 'Trimurti Sculpture',
-    description: 'Sacred sculptures representing the Hindu trinity - Brahma, Vishnu, and Shiva',
-    slug: 'trimurti-sculpture'
+    name: 'Trimurti Product',
+    description: 'Sacred products representing the Hindu trinity - Brahma, Vishnu, and Shiva',
+    slug: 'trimurti-product'
   },
   {
-    name: 'Brahma Sculpture',
-    description: 'Divine sculptures of Lord Brahma, the creator in Hindu mythology',
-    slug: 'brahma-sculpture'
+    name: 'Brahma Product',
+    description: 'Divine products of Lord Brahma, the creator in Hindu mythology',
+    slug: 'brahma-product'
   },
   {
-    name: 'Vishnu Sculpture',
-    description: 'Sacred sculptures of Lord Vishnu, the preserver deity',
-    slug: 'vishnu-sculpture'
+    name: 'Vishnu Product',
+    description: 'Sacred products of Lord Vishnu, the preserver deity',
+    slug: 'vishnu-product'
   },
   {
-    name: 'Shiva Sculpture',
-    description: 'Divine sculptures of Lord Shiva, the destroyer and transformer',
-    slug: 'shiva-sculpture'
+    name: 'Shiva Product',
+    description: 'Divine products of Lord Shiva, the destroyer and transformer',
+    slug: 'shiva-product'
   },
   {
-    name: 'Krishna Sculpture',
-    description: 'Beautiful sculptures of Lord Krishna in various forms',
-    slug: 'krishna-sculpture'
+    name: 'Krishna Product',
+    description: 'Beautiful products of Lord Krishna in various forms',
+    slug: 'krishna-product'
   },
   {
     name: 'Shiva Lingam',
-    description: 'Sacred Shiva Lingam sculptures for worship and meditation',
+    description: 'Sacred Shiva Lingam products for worship and meditation',
     slug: 'shiva-lingam'
   },
   {
     name: 'Lingam',
-    description: 'Traditional Lingam sculptures in various materials',
+    description: 'Traditional Lingam products in various materials',
     slug: 'lingam'
   },
   {
     name: 'Dhyana Lingam',
-    description: 'Meditation Lingam sculptures for spiritual practice',
+    description: 'Meditation Lingam products for spiritual practice',
     slug: 'dhyana-lingam'
   },
   {
     name: 'Suyambu Lingam',
-    description: 'Natural self-manifested Lingam sculptures',
+    description: 'Natural self-manifested Lingam products',
     slug: 'suyambu-lingam'
   },
   {
     name: 'Bairavar',
-    description: 'Fierce form of Lord Shiva sculptures',
+    description: 'Fierce form of Lord Shiva products',
     slug: 'bairavar'
   },
   {
-    name: 'Tridevi Sculpture',
-    description: 'Sacred sculptures of the three goddesses - Saraswati, Lakshmi, and Parvati',
-    slug: 'tridevi-sculpture'
+    name: 'Tridevi Product',
+    description: 'Sacred products of the three goddesses - Saraswati, Lakshmi, and Parvati',
+    slug: 'tridevi-product'
   },
   {
-    name: 'Vinayagar Sculpture',
-    description: 'Lord Ganesha sculptures in various poses and sizes',
-    slug: 'vinayagar-sculpture'
+    name: 'Vinayagar Product',
+    description: 'Lord Ganesha products in various poses and sizes',
+    slug: 'vinayagar-product'
   },
   {
-    name: 'Murugar Sculpture',
-    description: 'Lord Murugan sculptures, the Tamil deity of war and victory',
-    slug: 'murugar-sculpture'
+    name: 'Murugar Product',
+    description: 'Lord Murugan products, the Tamil deity of war and victory',
+    slug: 'murugar-product'
   },
   {
-    name: 'Amman Sculpture',
-    description: 'Divine Mother goddess sculptures in various forms',
-    slug: 'amman-sculpture'
+    name: 'Amman Product',
+    description: 'Divine Mother goddess products in various forms',
+    slug: 'amman-product'
   },
   {
-    name: 'Navagraham Sculpture',
-    description: 'Nine planetary deities sculptures for astrological worship',
-    slug: 'navagraham-sculpture'
+    name: 'Navagraham Product',
+    description: 'Nine planetary deities products for astrological worship',
+    slug: 'navagraham-product'
   },
   {
-    name: 'God Vaganam Sculpture',
-    description: 'Divine vehicle sculptures of various deities',
-    slug: 'god-vaganam-sculpture'
+    name: 'God Vaganam Product',
+    description: 'Divine vehicle products of various deities',
+    slug: 'god-vaganam-product'
   },
   {
-    name: 'Kannimargal Sculpture',
-    description: 'Sacred virgin goddess sculptures',
-    slug: 'kannimargal-sculpture'
+    name: 'Kannimargal Product',
+    description: 'Sacred virgin goddess products',
+    slug: 'kannimargal-product'
   },
   {
     name: 'Kaval Dheivam',
-    description: 'Guardian deity sculptures for protection',
+    description: 'Guardian deity products for protection',
     slug: 'kaval-dheivam'
   },
   {
     name: 'Ramar Set',
-    description: 'Complete Rama family sculpture sets',
+    description: 'Complete Rama family product sets',
     slug: 'ramar-set'
   },
   {
     name: 'Naalvar',
-    description: 'Four Alvars saint sculptures',
+    description: 'Four Alvars saint products',
     slug: 'naalvar'
   },
   {
     name: 'Others',
-    description: 'Other divine sculptures and spiritual artifacts',
+    description: 'Other divine products and spiritual artifacts',
     slug: 'others'
   }
 ];

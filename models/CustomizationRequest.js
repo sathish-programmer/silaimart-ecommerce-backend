@@ -6,7 +6,7 @@ const customizationRequestSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  sculptureType: {
+  productType: {
     type: String,
     enum: ['Religious', 'Abstract', 'Portrait', 'Animal', 'Decorative', 'Custom Design'],
     required: true,

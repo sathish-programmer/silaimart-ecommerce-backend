@@ -20,7 +20,7 @@ const generateInvoicePDF = (order) => {
             doc.rect(0, 0, 612, 120).fill('#1c1917'); // Stone-900 for premium feel
             
             doc.fillColor('#fbbf24').fontSize(32).font('Helvetica-Bold').text('SILAIMART', 50, 40); // Amber-400
-            doc.fillColor('#a8a29e').fontSize(10).font('Helvetica').text('DIVINE ART TO YOUR DOORSTEP', 50, 75, { characterSpacing: 2 });
+            doc.fillColor('#a8a29e').fontSize(10).font('Helvetica').text('YOUR PREMIUM SHOPPING DESTINATION', 50, 75, { characterSpacing: 2 });
             
             doc.fillColor('#ffffff').fontSize(24).font('Helvetica-Bold').text('INVOICE', 400, 40, { align: 'right' });
             doc.fillColor('#a8a29e').fontSize(10).font('Helvetica').text(`Nº: ${order.orderNumber}`, 400, 70, { align: 'right' });
@@ -31,9 +31,9 @@ const generateInvoicePDF = (order) => {
             doc.fontSize(10).font('Helvetica');
             doc.text(order.shippingAddress.name, 50, 170);
             doc.text(order.shippingAddress.street, 50, 185, { width: 220 });
-            doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`, 50, 215);
-            doc.text(`Phone: ${order.shippingAddress.phone}`, 50, 230);
-            doc.text(`Email: ${order.user?.email || 'N/A'}`, 50, 245);
+            doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`, 50, 200);
+            doc.text(`Phone: ${order.shippingAddress.phone}`, 50, 215);
+            doc.text(`Email: ${order.user?.email || 'N/A'}`, 50, 230);
 
             doc.font('Helvetica-Bold').text('BUSINESS INFO', 350, 150);
             doc.font('Helvetica');
@@ -44,19 +44,19 @@ const generateInvoicePDF = (order) => {
             doc.text('Web: www.silaimart.in', 350, 230);
 
             // --- Items Table ---
-            const tableTop = 300;
+            const tableTop = 280;
             const itemX = 50;
             const qtyX = 300;
-            const priceX = 380;
-            const totalX = 480;
+            const priceX = 360;
+            const totalX = 460;
 
             // Table Header
             doc.rect(itemX - 10, tableTop, 520, 25).fill('#f8f7f4');
             doc.fillColor('#44403c').fontSize(10).font('Helvetica-Bold');
             doc.text('ITEM DESCRIPTION', itemX, tableTop + 8);
-            doc.text('QTY', qtyX, tableTop + 8);
-            doc.text('UNIT PRICE', priceX, tableTop + 8);
-            doc.text('TOTAL', totalX, tableTop + 8);
+            doc.text('QTY', qtyX, tableTop + 8, { width: 40, align: 'center' });
+            doc.text('UNIT PRICE', priceX, tableTop + 8, { width: 80, align: 'right' });
+            doc.text('TOTAL', totalX, tableTop + 8, { width: 100, align: 'right' });
 
             // Border below header
             doc.moveTo(itemX - 10, tableTop + 25).lineTo(itemX + 510, tableTop + 25).strokeColor('#e7e5e4').lineWidth(1).stroke();
@@ -66,7 +66,7 @@ const generateInvoicePDF = (order) => {
             doc.font('Helvetica');
             
             order.items.forEach((item, index) => {
-                const product = item.product || { name: 'Sacred Art' };
+                const product = item.product || { name: 'Product' };
                 const price = item.discountPrice || item.price;
                 const total = price * item.quantity;
                 
@@ -77,9 +77,9 @@ const generateInvoicePDF = (order) => {
                 
                 doc.fillColor('#1c1917');
                 doc.text(product.name, itemX, y, { width: 240 });
-                doc.text(item.quantity.toString(), qtyX, y);
-                doc.text(`₹${price.toLocaleString('en-IN')}`, priceX, y);
-                doc.text(`₹${total.toLocaleString('en-IN')}`, totalX, y);
+                doc.text(item.quantity.toString(), qtyX, y, { width: 40, align: 'center' });
+                doc.text(`Rs. ${price.toLocaleString('en-IN')}`, priceX, y, { width: 80, align: 'right' });
+                doc.text(`Rs. ${total.toLocaleString('en-IN')}`, totalX, y, { width: 100, align: 'right' });
                 
                 y += 25;
             });
@@ -87,13 +87,13 @@ const generateInvoicePDF = (order) => {
             // --- Calculation Section ---
             const summaryY = Math.max(y + 20, 500);
             const summaryX = 350;
-            const valueX = 480;
+            const valueX = 460;
 
             doc.fontSize(10).font('Helvetica');
             
             // Subtotal
             doc.fillColor('#78716c').text('Subtotal', summaryX, summaryY);
-            doc.fillColor('#1c1917').text(`₹${order.subtotal.toLocaleString('en-IN')}`, valueX, summaryY);
+            doc.fillColor('#1c1917').text(`Rs. ${order.subtotal.toLocaleString('en-IN')}`, valueX, summaryY, { width: 100, align: 'right' });
             
             let currentY = summaryY + 20;
 
@@ -101,29 +101,29 @@ const generateInvoicePDF = (order) => {
             if (order.discount > 0 || order.loyaltyDiscount > 0) {
                 const totalDisc = (order.discount || 0) + (order.loyaltyDiscount || 0);
                 doc.fillColor('#78716c').text('Total Discount', summaryX, currentY);
-                doc.fillColor('#dc2626').text(`-₹${totalDisc.toLocaleString('en-IN')}`, valueX, currentY);
+                doc.fillColor('#dc2626').text(`-Rs. ${totalDisc.toLocaleString('en-IN')}`, valueX, currentY, { width: 100, align: 'right' });
                 currentY += 20;
             }
 
             // Shipping
             doc.fillColor('#78716c').text('Shipping', summaryX, currentY);
-            doc.fillColor('#1c1917').text(order.shippingCost === 0 ? 'FREE' : `₹${order.shippingCost.toLocaleString('en-IN')}`, valueX, currentY);
+            doc.fillColor('#1c1917').text(order.shippingCost === 0 ? 'FREE' : `Rs. ${order.shippingCost.toLocaleString('en-IN')}`, valueX, currentY, { width: 100, align: 'right' });
             currentY += 20;
 
             // Tax
             doc.fillColor('#78716c').text(`Tax (GST ${order.taxRate || 18}%)`, summaryX, currentY);
-            doc.fillColor('#1c1917').text(`₹${order.tax.toLocaleString('en-IN')}`, valueX, currentY);
+            doc.fillColor('#1c1917').text(`Rs. ${order.tax.toLocaleString('en-IN')}`, valueX, currentY, { width: 100, align: 'right' });
             currentY += 25;
 
             // Total Box
-            doc.rect(summaryX - 10, currentY - 5, 210, 35).fill('#1c1917');
+            doc.rect(summaryX - 10, currentY - 5, 220, 35).fill('#1c1917');
             doc.fillColor('#ffffff').fontSize(14).font('Helvetica-Bold').text('TOTAL', summaryX, currentY + 8);
-            doc.fillColor('#fbbf24').text(`₹${order.total.toLocaleString('en-IN')}`, valueX - 10, currentY + 8, { width: 80, align: 'right' });
+            doc.fillColor('#fbbf24').text(`Rs. ${order.total.toLocaleString('en-IN')}`, valueX, currentY + 8, { width: 100, align: 'right' });
 
             // --- Footer ---
             doc.rect(0, 780, 612, 62).fill('#faf9f6');
             doc.fillColor('#78716c').fontSize(9).font('Helvetica-Oblique').text('This is a computer generated invoice and does not require a physical signature.', 0, 800, { align: 'center', width: 612 });
-            doc.fillColor('#1c1917').fontSize(10).font('Helvetica-Bold').text('THANK YOU FOR BRINGING US INTO YOUR SANCTUARY', 0, 815, { align: 'center', width: 612, characterSpacing: 1 });
+            doc.fillColor('#1c1917').fontSize(10).font('Helvetica-Bold').text('THANK YOU FOR SHOPPING WITH SILAIMART', 0, 815, { align: 'center', width: 612, characterSpacing: 1 });
 
             doc.end();
         } catch (error) {

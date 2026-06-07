@@ -55,8 +55,10 @@ exports.validateCoupon = async (req, res) => {
     const coupon = await Coupon.findOne({ 
       code: code.toUpperCase(),
       isActive: true,
-      validFrom: { $lte: new Date() },
-      validUntil: { $gte: new Date() }
+      $and: [
+        { $or: [ { validFrom: { $exists: false } }, { validFrom: null }, { validFrom: { $lte: new Date() } } ] },
+        { $or: [ { validUntil: { $exists: false } }, { validUntil: null }, { validUntil: { $gte: new Date() } } ] }
+      ]
     });
 
     if (!coupon) {

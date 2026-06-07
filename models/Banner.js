@@ -8,6 +8,7 @@ const bannerSchema = new mongoose.Schema({
   },
   subtitle: String,
   description: String,
+  offerTag: String,
   image: {
     url: { type: String, required: true },
     alt: String
@@ -19,7 +20,7 @@ const bannerSchema = new mongoose.Schema({
   },
   position: {
     type: String,
-    enum: ['hero', 'shop-top', 'category', 'footer'],
+    enum: ['hero', 'shop-top', 'category', 'promo_tile', 'story_banner', 'payment_strip', 'flash_sale'],
     default: 'shop-top'
   },
   order: {
